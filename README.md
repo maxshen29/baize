@@ -40,11 +40,11 @@
 
 · [界面预览](docs/UI.md)
 
-![image-20261023135310230](README.assets\image-20261023135310230.png)
+![image-20261023135310230](README.assets/image-20261023135310230.png)
 
 
 
-![image-20261023135410212](README.assets\image-20261023135410212.png)
+![image-20261023135410212](README.assets/image-20261023135410212.png)
 
 其他参考
 
