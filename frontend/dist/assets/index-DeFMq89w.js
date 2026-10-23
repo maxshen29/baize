@@ -1,0 +1,1 @@
+import{A as e}from"./AcademicTool-C_5DOMfD.js";import{d as a,o,c}from"./index-CjP14Ny6.js";const l=a({__name:"index",setup(t){return(r,s)=>(o(),c(e,{code:"academic_abstract",tool:"abstract",label:"摘要与亮点",desc:"从全文提炼结构化摘要 + 创新点 + 关键词",placeholder:"粘贴论文全文或核心章节…"}))}});export{l as default};

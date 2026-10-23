@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 420" font-family="'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif">
+  <rect width="820" height="420" fill="#f8fafc"/>
+  <text x="32" y="34" font-size="18" font-weight="700" fill="#0f172a">主界面布局（MainLayout）</text>
+  <text x="32" y="56" font-size="12" fill="#64748b">左侧导航 · 顶部操作栏 · 玻璃拟态内容区 · 可切换 6 套配色</text>
+
+  <!-- sidebar -->
+  <rect x="24" y="76" width="190" height="320" rx="14" fill="#ffffff" stroke="#10b981" stroke-width="2"/>
+  <rect x="40" y="92" width="120" height="22" rx="6" fill="#ecfdf5"/>
+  <text x="100" y="108" text-anchor="middle" font-size="12" font-weight="700" fill="#065f46">白泽 AI 应用平台</text>
+  <g font-size="11.5" fill="#334155">
+    <rect x="40" y="128" width="158" height="26" rx="7" fill="#ecfdf5"/><text x="52" y="145">▸ 工作台</text>
+    <text x="52" y="178" font-weight="600" fill="#0f172a">系统管理</text>
+    <text x="64" y="198">用户管理</text><text x="64" y="216">角色管理</text><text x="64" y="234">权限管理</text>
+    <text x="64" y="252">应用市场管理</text><text x="64" y="270">操作日志</text>
+    <text x="64" y="288">大模型接入</text><text x="64" y="306">配色方案</text>
+    <text x="52" y="338" font-weight="600" fill="#0f172a">AI 应用市场</text>
+    <text x="64" y="358">综合论文编写 · 社会推演 …</text>
+  </g>
+
+  <!-- header -->
+  <rect x="226" y="76" width="570" height="44" rx="12" fill="#ffffff" stroke="#64748b" stroke-width="1.2"/>
+  <text x="242" y="103" font-size="13" font-weight="600" fill="#0f172a">工作台</text>
+  <circle cx="700" cy="98" r="9" fill="#34d399"/>
+  <text x="690" y="124" text-anchor="end" font-size="10.5" fill="#475569">主题 ● 用户 ● 退出</text>
+
+  <!-- main area -->
+  <rect x="226" y="132" width="570" height="264" rx="12" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.2"/>
+  <text x="244" y="158" font-size="14" font-weight="700" fill="#0f172a">欢迎回来，超级管理员</text>
+  <g>
+    <rect x="244" y="172" width="164" height="56" rx="10" fill="#ecfdf5" stroke="#a7f3d0"/>
+    <text x="258" y="196" font-size="11" fill="#475569">我的角色</text><text x="258" y="216" font-size="16" font-weight="800" fill="#047857">1</text>
+    <rect x="424" y="172" width="164" height="56" rx="10" fill="#ecfeff" stroke="#a5f3fc"/>
+    <text x="438" y="196" font-size="11" fill="#475569">权限点</text><text x="438" y="216" font-size="16" font-weight="800" fill="#0e7490">36</text>
+    <rect x="604" y="172" width="164" height="56" rx="10" fill="#f5f3ff" stroke="#ddd6fe"/>
+    <text x="618" y="196" font-size="11" fill="#475569">可用应用</text><text x="618" y="216" font-size="16" font-weight="800" fill="#6d28d9">16</text>
+  </g>
+  <text x="244" y="256" font-size="12.5" font-weight="600" fill="#0f172a">AI 应用市场</text>
+  <rect x="244" y="266" width="524" height="40" rx="8" fill="#f8fafc" stroke="#e2e8f0"/>
+  <text x="258" y="291" font-size="11" fill="#334155">综合论文编写 · AI 方案生成 · 社会推演 · 学术工具 …</text>
+  <text x="244" y="332" font-size="12.5" font-weight="600" fill="#0f172a">我的权限</text>
+  <g font-size="10" fill="#047857">
+    <rect x="244" y="342" width="92" height="22" rx="6" fill="#ecfdf5"/><text x="290" y="357" text-anchor="middle">user:user:read</text>
+    <rect x="344" y="342" width="100" height="22" rx="6" fill="#ecfdf5"/><text x="394" y="357" text-anchor="middle">module:module:*</text>
+    <rect x="452" y="342" width="100" height="22" rx="6" fill="#ecfdf5"/><text x="502" y="357" text-anchor="middle">app:*:use</text>
+  </g>
+</svg>

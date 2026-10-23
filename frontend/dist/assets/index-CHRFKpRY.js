@@ -1,0 +1,1 @@
+import{A as e}from"./AcademicTool-C_5DOMfD.js";import{d as a,o,c as t}from"./index-CjP14Ny6.js";const d=a({__name:"index",setup(c){return(r,n)=>(o(),t(e,{code:"academic_translate",tool:"translate",label:"中英互译","needs-lang":!0,desc:"学术级中英互译，术语准确、保留格式",placeholder:"粘贴需要翻译的英文或中文文本…"}))}});export{d as default};

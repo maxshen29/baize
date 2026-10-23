@@ -1,0 +1,395 @@
+/* =========================================================================
+   白泽平台 · 清新薄荷风设计令牌 (Design Tokens)
+   统一配色 / 排版 / 圆角 / 阴影 —— 同时覆盖 Element Plus 主题变量
+   主色：薄荷绿 → 祖母绿 → 青，浅色通透、柔和微光
+   ========================================================================= */
+
+:root {
+  /* ---- 品牌主色：薄荷 → 绿 → 青 渐变体系 ---- */
+  --brand-cyan: #06b6d4;
+  --brand-mint: #34d399;
+  --brand-emerald: #10b981;
+  --brand-grad: linear-gradient(135deg, #34d399 0%, #10b981 48%, #06b6d4 100%);
+  --brand-grad-soft: linear-gradient(135deg, rgba(52, 211, 153, 0.16) 0%, rgba(6, 182, 212, 0.16) 100%);
+
+  /* ---- 中性色板（清新浅色）---- */
+  --c-bg: #eefaf5;            /* 页面底色（极浅薄荷） */
+  --c-bg-2: #e3f6ef;          /* 次级底色 */
+  --c-surface: #ffffff;       /* 卡片/浮层 */
+  --c-surface-2: #f4fbf8;     /* 次级表面 */
+  --c-border: #dcefe7;
+  --c-border-strong: #c4e6da;
+
+  --c-text-1: #143a32;        /* 主文字（深青墨） */
+  --c-text-2: #4f7268;        /* 次文字 */
+  --c-text-3: #8aab9f;        /* 弱文字 */
+
+  /* ---- 功能色 ---- */
+  --c-success: #10b981;
+  --c-warning: #f59e0b;
+  --c-danger: #f43f5e;
+  --c-info: #0ea5b7;
+
+  /* ---- 侧边栏（浅色清新：白 → 薄荷）---- */
+  --c-side-1: #ffffff;
+  --c-side-2: #eafaf3;
+  --c-side-glow: rgba(16, 185, 129, 0.5);
+
+  /* ---- 圆角 ---- */
+  --radius-sm: 8px;
+  --radius: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 22px;
+
+  /* ---- 阴影（柔和、带薄荷微光）---- */
+  --shadow-sm: 0 1px 2px rgba(20, 58, 50, 0.05), 0 2px 8px rgba(16, 185, 129, 0.06);
+  --shadow: 0 6px 18px rgba(20, 58, 50, 0.07), 0 2px 6px rgba(16, 185, 129, 0.06);
+  --shadow-lg: 0 18px 48px rgba(20, 58, 50, 0.12), 0 6px 16px rgba(16, 185, 129, 0.10);
+  --shadow-glow: 0 12px 36px rgba(16, 185, 129, 0.22), 0 0 0 1px rgba(16, 185, 129, 0.12);
+  --shadow-side: 6px 0 24px rgba(20, 58, 50, 0.08);
+
+  /* ---- 排版 ---- */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
+  --fs-xs: 12px;
+  --fs-sm: 13px;
+  --fs-md: 14px;
+  --fs-lg: 16px;
+  --fs-xl: 20px;
+  --fs-2xl: 26px;
+  --fs-3xl: 34px;
+
+  /* ---- 动效曲线 ---- */
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-fast: 0.18s;
+  --dur: 0.32s;
+  --dur-slow: 0.6s;
+
+  /* ============ Element Plus 主题覆盖 ============ */
+  --el-color-primary: #10b981;
+  --el-color-primary-light-3: #4cc79a;
+  --el-color-primary-light-5: #86dabd;
+  --el-color-primary-light-7: #bdecd9;
+  --el-color-primary-light-8: #d6f2e8;
+  --el-color-primary-light-9: #ecfaf4;
+  --el-color-primary-dark-2: #0c9a6e;
+
+  --el-color-success: #10b981;
+  --el-color-success-light-9: #e7f8f1;
+  --el-color-warning: #f59e0b;
+  --el-color-warning-light-9: #fdf3e2;
+  --el-color-danger: #f43f5e;
+  --el-color-danger-light-9: #fdeaee;
+  --el-color-error: #f43f5e;
+  --el-color-info: #0ea5b7;
+
+  --el-bg-color: #ffffff;
+  --el-bg-color-page: #eefaf5;
+  --el-bg-color-overlay: #ffffff;
+  --el-text-color-primary: #143a32;
+  --el-text-color-regular: #4f7268;
+  --el-text-color-secondary: #8aab9f;
+  --el-text-color-placeholder: #aac6bb;
+  --el-border-color: #dcefe7;
+  --el-border-color-light: #e7f4ef;
+  --el-border-color-lighter: #f1f9f6;
+  --el-border-color-hover: #9fdcbd;
+
+  --el-border-radius-base: 10px;
+  --el-border-radius-small: 8px;
+  --el-border-radius-round: 999px;
+
+  --el-font-family: var(--font-sans);
+  --el-font-size-base: 14px;
+
+  --el-box-shadow: var(--shadow);
+  --el-box-shadow-light: var(--shadow-sm);
+  --el-box-shadow-lighter: 0 2px 10px rgba(20, 58, 50, 0.05);
+  --el-transition-duration: 0.28s;
+
+  /* 表单/输入框聚焦发光 */
+  --el-border-color-hover: #6fd0a8;
+}
+
+/* =========================================================================
+   多套配色方案（运行时通过 <html data-theme="..."> 切换）
+   未设置 data-theme 时默认即为「薄荷青」(:root)。
+   用户在界面中可自由切换；管理员可在系统管理中设定平台默认。
+   ========================================================================= */
+
+/* 海洋蓝 */
+:root[data-theme="ocean"] {
+  --brand-cyan: #0ea5e9;
+  --brand-mint: #22d3ee;
+  --brand-emerald: #0ea5e9;
+  --brand-grad: linear-gradient(135deg, #22d3ee 0%, #0ea5e9 48%, #2563eb 100%);
+  --brand-grad-soft: linear-gradient(135deg, rgba(34, 211, 238, 0.16) 0%, rgba(37, 99, 235, 0.16) 100%);
+
+  --c-bg: #eef6fd;
+  --c-bg-2: #e2f0fb;
+  --c-surface: #ffffff;
+  --c-surface-2: #f2f8fe;
+  --c-border: #d7e6f5;
+  --c-border-strong: #bcd6ee;
+
+  --c-text-1: #0f2a3f;
+  --c-text-2: #3f5e74;
+  --c-text-3: #7d97ab;
+
+  --c-success: #0ea5e9;
+  --c-warning: #f59e0b;
+  --c-danger: #f43f5e;
+  --c-info: #0ea5b7;
+
+  --c-side-1: #ffffff;
+  --c-side-2: #e8f3fd;
+  --c-side-glow: rgba(14, 165, 233, 0.5);
+
+  --shadow-sm: 0 1px 2px rgba(15, 42, 63, 0.05), 0 2px 8px rgba(14, 165, 233, 0.06);
+  --shadow: 0 6px 18px rgba(15, 42, 63, 0.07), 0 2px 6px rgba(14, 165, 233, 0.06);
+  --shadow-lg: 0 18px 48px rgba(15, 42, 63, 0.12), 0 6px 16px rgba(14, 165, 233, 0.10);
+  --shadow-glow: 0 12px 36px rgba(14, 165, 233, 0.22), 0 0 0 1px rgba(14, 165, 233, 0.12);
+  --shadow-side: 6px 0 24px rgba(15, 42, 63, 0.08);
+
+  --el-color-primary: #0ea5e9;
+  --el-color-primary-light-3: #5cc0ef;
+  --el-color-primary-light-5: #93d4f3;
+  --el-color-primary-light-7: #c2e8fa;
+  --el-color-primary-light-8: #d9f1fc;
+  --el-color-primary-light-9: #eef8fe;
+  --el-color-primary-dark-2: #0b87c4;
+
+  --el-bg-color: #ffffff;
+  --el-bg-color-page: #eef6fd;
+  --el-bg-color-overlay: #ffffff;
+  --el-text-color-primary: #0f2a3f;
+  --el-text-color-regular: #3f5e74;
+  --el-text-color-secondary: #7d97ab;
+  --el-text-color-placeholder: #a9c2d6;
+  --el-border-color: #d7e6f5;
+  --el-border-color-light: #e3f0fa;
+  --el-border-color-lighter: #f1f8fe;
+  --el-border-color-hover: #7fc8ef;
+}
+
+/* 紫罗兰 */
+:root[data-theme="violet"] {
+  --brand-cyan: #818cf8;
+  --brand-mint: #a78bfa;
+  --brand-emerald: #7c3aed;
+  --brand-grad: linear-gradient(135deg, #a78bfa 0%, #7c3aed 48%, #4f46e5 100%);
+  --brand-grad-soft: linear-gradient(135deg, rgba(167, 139, 250, 0.16) 0%, rgba(79, 70, 229, 0.16) 100%);
+
+  --c-bg: #f4f1fd;
+  --c-bg-2: #ece6fb;
+  --c-surface: #ffffff;
+  --c-surface-2: #f7f4fe;
+  --c-border: #e3d9f5;
+  --c-border-strong: #cdbcf0;
+
+  --c-text-1: #2a1a45;
+  --c-text-2: #574a73;
+  --c-text-3: #8d80a8;
+
+  --c-success: #10b981;
+  --c-warning: #f59e0b;
+  --c-danger: #f43f5e;
+  --c-info: #6366f1;
+
+  --c-side-1: #ffffff;
+  --c-side-2: #efe9fc;
+  --c-side-glow: rgba(124, 58, 237, 0.5);
+
+  --shadow-sm: 0 1px 2px rgba(42, 26, 69, 0.05), 0 2px 8px rgba(124, 58, 237, 0.06);
+  --shadow: 0 6px 18px rgba(42, 26, 69, 0.07), 0 2px 6px rgba(124, 58, 237, 0.06);
+  --shadow-lg: 0 18px 48px rgba(42, 26, 69, 0.12), 0 6px 16px rgba(124, 58, 237, 0.10);
+  --shadow-glow: 0 12px 36px rgba(124, 58, 237, 0.22), 0 0 0 1px rgba(124, 58, 237, 0.12);
+  --shadow-side: 6px 0 24px rgba(42, 26, 69, 0.08);
+
+  --el-color-primary: #7c3aed;
+  --el-color-primary-light-3: #a177ec;
+  --el-color-primary-light-5: #c0a3f2;
+  --el-color-primary-light-7: #ddc8f8;
+  --el-color-primary-light-8: #e9dcfb;
+  --el-color-primary-light-9: #f3ecfd;
+  --el-color-primary-dark-2: #632bbd;
+
+  --el-bg-color: #ffffff;
+  --el-bg-color-page: #f4f1fd;
+  --el-bg-color-overlay: #ffffff;
+  --el-text-color-primary: #2a1a45;
+  --el-text-color-regular: #574a73;
+  --el-text-color-secondary: #8d80a8;
+  --el-text-color-placeholder: #b6abc9;
+  --el-border-color: #e3d9f5;
+  --el-border-color-light: #ece4f9;
+  --el-border-color-lighter: #f5f1fc;
+  --el-border-color-hover: #b18cec;
+}
+
+/* 玫红 */
+:root[data-theme="rose"] {
+  --brand-cyan: #fb7185;
+  --brand-mint: #f472b6;
+  --brand-emerald: #e11d48;
+  --brand-grad: linear-gradient(135deg, #f472b6 0%, #e11d48 48%, #be123c 100%);
+  --brand-grad-soft: linear-gradient(135deg, rgba(244, 114, 182, 0.16) 0%, rgba(190, 18, 60, 0.16) 100%);
+
+  --c-bg: #fdf0f3;
+  --c-bg-2: #fbe4ea;
+  --c-surface: #ffffff;
+  --c-surface-2: #fef5f8;
+  --c-border: #f6d8e0;
+  --c-border-strong: #efc0cd;
+
+  --c-text-1: #451423;
+  --c-text-2: #744250;
+  --c-text-3: #a88290;
+
+  --c-success: #10b981;
+  --c-warning: #f59e0b;
+  --c-danger: #e11d48;
+  --c-info: #e11d48;
+
+  --c-side-1: #ffffff;
+  --c-side-2: #fdeaef;
+  --c-side-glow: rgba(225, 29, 72, 0.5);
+
+  --shadow-sm: 0 1px 2px rgba(69, 20, 35, 0.05), 0 2px 8px rgba(225, 29, 72, 0.06);
+  --shadow: 0 6px 18px rgba(69, 20, 35, 0.07), 0 2px 6px rgba(225, 29, 72, 0.06);
+  --shadow-lg: 0 18px 48px rgba(69, 20, 35, 0.12), 0 6px 16px rgba(225, 29, 72, 0.10);
+  --shadow-glow: 0 12px 36px rgba(225, 29, 72, 0.22), 0 0 0 1px rgba(225, 29, 72, 0.12);
+  --shadow-side: 6px 0 24px rgba(69, 20, 35, 0.08);
+
+  --el-color-primary: #e11d48;
+  --el-color-primary-light-3: #ee5a78;
+  --el-color-primary-light-5: #f48ca0;
+  --el-color-primary-light-7: #fab9c6;
+  --el-color-primary-light-8: #fcd2da;
+  --el-color-primary-light-9: #fde7ec;
+  --el-color-primary-dark-2: #b8173a;
+
+  --el-bg-color: #ffffff;
+  --el-bg-color-page: #fdf0f3;
+  --el-bg-color-overlay: #ffffff;
+  --el-text-color-primary: #451423;
+  --el-text-color-regular: #744250;
+  --el-text-color-secondary: #a88290;
+  --el-text-color-placeholder: #cdafb8;
+  --el-border-color: #f6d8e0;
+  --el-border-color-light: #fbe9ee;
+  --el-border-color-lighter: #fdf2f5;
+  --el-border-color-hover: #ec7e98;
+}
+
+/* 琥珀金 */
+:root[data-theme="amber"] {
+  --brand-cyan: #fbbf24;
+  --brand-mint: #fcd34d;
+  --brand-emerald: #f59e0b;
+  --brand-grad: linear-gradient(135deg, #fcd34d 0%, #f59e0b 48%, #d97706 100%);
+  --brand-grad-soft: linear-gradient(135deg, rgba(252, 211, 77, 0.18) 0%, rgba(217, 119, 6, 0.16) 100%);
+
+  --c-bg: #fdf8ec;
+  --c-bg-2: #fbf0d8;
+  --c-surface: #ffffff;
+  --c-surface-2: #fefcf6;
+  --c-border: #f3e3c2;
+  --c-border-strong: #ecd29c;
+
+  --c-text-1: #3f2f10;
+  --c-text-2: #6f5c34;
+  --c-text-3: #a08a5f;
+
+  --c-success: #10b981;
+  --c-warning: #f59e0b;
+  --c-danger: #f43f5e;
+  --c-info: #0ea5b7;
+
+  --c-side-1: #ffffff;
+  --c-side-2: #fdf3e2;
+  --c-side-glow: rgba(245, 158, 11, 0.5);
+
+  --shadow-sm: 0 1px 2px rgba(63, 47, 16, 0.05), 0 2px 8px rgba(245, 158, 11, 0.06);
+  --shadow: 0 6px 18px rgba(63, 47, 16, 0.07), 0 2px 6px rgba(245, 158, 11, 0.06);
+  --shadow-lg: 0 18px 48px rgba(63, 47, 16, 0.12), 0 6px 16px rgba(245, 158, 11, 0.10);
+  --shadow-glow: 0 12px 36px rgba(245, 158, 11, 0.22), 0 0 0 1px rgba(245, 158, 11, 0.12);
+  --shadow-side: 6px 0 24px rgba(63, 47, 16, 0.08);
+
+  --el-color-primary: #f59e0b;
+  --el-color-primary-light-3: #f8b54e;
+  --el-color-primary-light-5: #fac880;
+  --el-color-primary-light-7: #fde0b3;
+  --el-color-primary-light-8: #fceed0;
+  --el-color-primary-light-9: #fef6e6;
+  --el-color-primary-dark-2: #c47c09;
+
+  --el-bg-color: #ffffff;
+  --el-bg-color-page: #fdf8ec;
+  --el-bg-color-overlay: #ffffff;
+  --el-text-color-primary: #3f2f10;
+  --el-text-color-regular: #6f5c34;
+  --el-text-color-secondary: #a08a5f;
+  --el-text-color-placeholder: #c4b186;
+  --el-border-color: #f3e3c2;
+  --el-border-color-light: #f9eFD4;
+  --el-border-color-lighter: #fdf8ec;
+  --el-border-color-hover: #f0b24f;
+}
+
+/* 暗夜 */
+:root[data-theme="dark"] {
+  --brand-cyan: #22d3ee;
+  --brand-mint: #34d399;
+  --brand-emerald: #10b981;
+  --brand-grad: linear-gradient(135deg, #34d399 0%, #10b981 48%, #22d3ee 100%);
+  --brand-grad-soft: linear-gradient(135deg, rgba(52, 211, 153, 0.18) 0%, rgba(34, 211, 238, 0.18) 100%);
+
+  --c-bg: #0c1417;
+  --c-bg-2: #0f1b1f;
+  --c-surface: #13211f;
+  --c-surface-2: #0f1a1d;
+  --c-border: #1e3530;
+  --c-border-strong: #274a42;
+
+  --c-text-1: #e6f7ef;
+  --c-text-2: #a9c9bd;
+  --c-text-3: #6f8e83;
+
+  --c-success: #34d399;
+  --c-warning: #fbbf24;
+  --c-danger: #fb7185;
+  --c-info: #22d3ee;
+
+  --c-side-1: #0e191c;
+  --c-side-2: #0c1619;
+  --c-side-glow: rgba(16, 185, 129, 0.5);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 18px 48px rgba(0, 0, 0, 0.55);
+  --shadow-glow: 0 12px 36px rgba(16, 185, 129, 0.25);
+  --shadow-side: 6px 0 24px rgba(0, 0, 0, 0.5);
+
+  --el-color-primary: #10b981;
+  --el-color-primary-light-3: #2fae85;
+  --el-color-primary-light-5: #4cc79a;
+  --el-color-primary-light-7: #7fd8b9;
+  --el-color-primary-light-8: #a3e6cd;
+  --el-color-primary-light-9: #d3f5e8;
+  --el-color-primary-dark-2: #0c9a6e;
+
+  --el-bg-color: #13211f;
+  --el-bg-color-page: #0c1417;
+  --el-bg-color-overlay: #13211f;
+  --el-text-color-primary: #e6f7ef;
+  --el-text-color-regular: #a9c9bd;
+  --el-text-color-secondary: #6f8e83;
+  --el-text-color-placeholder: #5d7a70;
+  --el-border-color: #1e3530;
+  --el-border-color-light: #1a2e2a;
+  --el-border-color-lighter: #16261f;
+  --el-border-color-hover: #2f6f5c;
+}

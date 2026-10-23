@@ -1,0 +1,155 @@
+/* =========================================================================
+   全局基础样式 · 重置 / 排版 / 清新背景 / 滚动条 / 路由切换动画
+   ========================================================================= */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: var(--fs-md);
+  color: var(--c-text-1);
+  background-color: var(--c-bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  line-height: 1.6;
+  letter-spacing: 0.2px;
+}
+
+h1, h2, h3, h4, h5 {
+  margin: 0;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  color: var(--c-text-1);
+}
+
+a {
+  color: var(--brand-emerald);
+  text-decoration: none;
+  transition: color var(--dur-fast) var(--ease);
+}
+a:hover { color: var(--brand-cyan); }
+
+/* ---- 清新页面背景：浅薄荷网格 + 柔和光晕 ---- */
+.tech-bg {
+  position: relative;
+  background-color: var(--c-bg);
+  background-image:
+    linear-gradient(rgba(16, 185, 129, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(16, 185, 129, 0.05) 1px, transparent 1px),
+    radial-gradient(1200px 600px at 85% -10%, rgba(52, 211, 153, 0.14), transparent 60%),
+    radial-gradient(1000px 500px at 0% 110%, rgba(6, 182, 212, 0.12), transparent 55%);
+  background-size: 34px 34px, 34px 34px, 100% 100%, 100% 100%;
+}
+
+/* 全局柔和网格背景（body，登录/布局共用） */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(16, 185, 129, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(16, 185, 129, 0.04) 1px, transparent 1px);
+  background-size: 36px 36px;
+  mask-image: radial-gradient(circle at 50% 40%, #000 30%, transparent 92%);
+  -webkit-mask-image: radial-gradient(circle at 50% 40%, #000 30%, transparent 92%);
+}
+
+/* ---- 滚动条（纤细、薄荷感）---- */
+::-webkit-scrollbar { width: 9px; height: 9px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #a8e6cd, #7fd6b6);
+  border-radius: 999px;
+  border: 2px solid var(--c-bg);
+}
+::-webkit-scrollbar-thumb:hover { background: linear-gradient(180deg, #6fd0a8, #34d399); }
+* { scrollbar-width: thin; scrollbar-color: #a8e6cd transparent; }
+
+::selection {
+  background: rgba(16, 185, 129, 0.22);
+  color: #0c3a2c;
+}
+
+/* =========================================================================
+   路由视图切换动画：淡入 + 轻微上滑
+   ========================================================================= */
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+  transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+.fade-slide-enter-from {
+  opacity: 0;
+  transform: translateY(14px);
+}
+.fade-slide-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+.fade-slide-leave-active {
+  position: absolute;
+  width: 100%;
+}
+
+/* =========================================================================
+   通用 keyframes
+   ========================================================================= */
+@keyframes orb-float {
+  0%   { transform: translate3d(0, 0, 0) scale(1); }
+  50%  { transform: translate3d(0, -26px, 0) scale(1.06); }
+  100% { transform: translate3d(0, 0, 0) scale(1); }
+}
+
+@keyframes glow-pulse {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 1; }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -480px 0; }
+  100% { background-position: 480px 0; }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes float-up {
+  0%   { opacity: 0; transform: translateY(8px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scan {
+  0%   { transform: translateY(-100%); }
+  100% { transform: translateY(2000%); }
+}
+
+/* 尊重用户的减弱动画偏好 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

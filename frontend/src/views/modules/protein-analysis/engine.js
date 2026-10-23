@@ -1,0 +1,3293 @@
+// AbInterface X — 引擎（迁移进白泽平台，非 iframe 托管）
+// 所有结构解析 / 界面相互作用 / SASA·BSA / 抗体 CDR 识别 / 热点 / 热图 / 3D 渲染逻辑。
+// 这里把 document/window 上注册的全局监听登记下来，组件卸载时统一移除，避免 SPA 重复挂载造成泄漏。
+let __abx_listeners = [];
+function __addDoc(type, fn, opts){ document.addEventListener(type, fn, opts); __abx_listeners.push(['doc', type, fn, opts]); }
+function __addWin(type, fn, opts){ window.addEventListener(type, fn, opts); __abx_listeners.push(['win', type, fn, opts]); }
+function __abx_cleanup(){
+  for (const item of __abx_listeners){
+    const w=item[0], t=item[1], f=item[2], o=item[3];
+    (w==='doc'?document:window).removeEventListener(t, f, o);
+  }
+  __abx_listeners = [];
+}
+export function cleanupEngine(){ __abx_cleanup(); }
+export function runEngine(){
+'use strict';
+  __abx_cleanup();
+
+
+/* =====================================================================================
+   1. 常量与数学工具
+   ===================================================================================== */
+const AA3TO1 = {
+  ALA:'A',ARG:'R',ASN:'N',ASP:'D',CYS:'C',GLN:'Q',GLU:'E',GLY:'G',HIS:'H',HIE:'H',HID:'H',HIP:'H',
+  ILE:'I',LEU:'L',LYS:'K',MET:'M',PHE:'F',PRO:'P',SER:'S',THR:'T',TRP:'W',TYR:'Y',VAL:'V',
+  SEC:'U',PYL:'O',MSE:'M',CSO:'C',CME:'C',CSD:'C',OCS:'C',KCX:'K',LLP:'K',MLY:'K',M3L:'K',
+  SEP:'S',TPO:'T',PTR:'Y',CSX:'C',CAS:'C',ALY:'K',HYP:'P',PCA:'E',FME:'M',SME:'M'
+};
+const AA_STD = new Set(['ALA','ARG','ASN','ASP','CYS','GLN','GLU','GLY','HIS','ILE','LEU','LYS','MET',
+  'PHE','PRO','SER','THR','TRP','TYR','VAL','SEC','PYL']);
+const AA_LIKE = new Set([...AA_STD,'MSE','CSO','CME','CSD','OCS','KCX','LLP','MLY','M3L','SEP','TPO',
+  'PTR','CSX','CAS','ALY','HYP','PCA','FME','SME','HID','HIE','HIP','CYX','ASH','GLH','LYN']);
+const WATERS = new Set(['HOH','WAT','H2O','DOD','TIP','TIP3','SOL','EDO']);
+const HYDROPHOBIC = new Set(['ALA','VAL','LEU','ILE','PHE','MET','TRP','PRO','CYS','MSE','TYR']);
+const AROMATIC = new Set(['PHE','TYR','TRP','HIS','HID','HIE','HIP']);
+const AROM_RINGS = {
+  PHE:[['CG','CD1','CD2','CE1','CE2','CZ']],
+  TYR:[['CG','CD1','CD2','CE1','CE2','CZ']],
+  HIS:[['CG','ND1','CD2','CE1','NE2']], HID:[['CG','ND1','CD2','CE1','NE2']],
+  HIE:[['CG','ND1','CD2','CE1','NE2']], HIP:[['CG','ND1','CD2','CE1','NE2']],
+  TRP:[['CG','CD1','NE1','CE2','CD2'],['CD2','CE2','CE3','CZ2','CZ3','CH2']]
+};
+/* Bondi 范德华半径（Å） */
+const ELEM_RADIUS = {H:1.20,D:1.20,C:1.70,N:1.55,O:1.52,S:1.80,P:1.80,F:1.47,CL:1.75,BR:1.85,I:1.98,
+  SE:1.90,B:1.92,SI:2.10,NA:2.27,MG:1.73,K:2.75,CA:2.31,ZN:1.39,MN:1.79,FE:2.00,CU:1.40,CO:1.70,NI:1.63};
+const CHAIN_PALETTE = ['#6E93D6','#E38C8C','#5FB98F','#E0C060','#B58FD6','#8FC6E0','#D6A46E',
+  '#A8D8A0','#E07AA8','#7F8FA6','#66C2C2','#C9A0DC'];
+const CHIMERAX_COLORS = [['#B58FD6','淡紫'],['#6E93D6','矢车菊蓝'],['#5FB98F','海绿'],['#E0C060','金菊'],
+  ['#E38C8C','鲑红'],['#8FC6E0','天蓝'],['#D6C3A0','棕褐'],['#A8D8A0','淡绿'],['#E07AA8','兰紫'],
+  ['#7F8FA6','石板灰'],['#C0C0C8','银灰'],['#66C2C2','青绿'],['#F0A868','杏橙'],['#8B7FD4','紫罗兰']];
+/* 相互作用类型：颜色 / 中文名 / 显示开关 id / CSS 类 */
+const KIND = {
+  hbond:      {color:'#d4c200', name:'氢键',      solid:false, toggle:'iHB'},
+  saltbridge: {color:'#ff7b00', name:'盐桥',      solid:false, toggle:'iSB'},
+  pipi:       {color:'#22c55e', name:'π–π 堆积',  solid:false, toggle:'iPP'},
+  pication:   {color:'#38bdf8', name:'阳离子–π',  solid:false, toggle:'iPC'},
+  disulfide:  {color:'#eab308', name:'二硫键',    solid:true,  toggle:'iSS'},
+  hydrophobic:{color:'#9aa0a6', name:'疏水接触',  solid:false, toggle:'iHY'},
+  waterbridge:{color:'#14b8a6', name:'水桥',      solid:false, toggle:'iWB'}
+};
+const KIND_ORDER = ['hbond','saltbridge','pipi','pication','disulfide','hydrophobic','waterbridge'];
+/* 角色定义 */
+const ROLE = {
+  VH:{label:'重链 VH', color:'#3b6fd4', cls:'VH'},
+  VL:{label:'轻链 VL', color:'#0f9aa8', cls:'VL'},
+  AG:{label:'抗原',    color:'#d9822b', cls:'AG'},
+  NA:{label:'未判定',  color:'#7b8aa3', cls:'NA'}
+};
+/* 平均蛋白质氨基酸组成（近似 SwissProt 统计，用于组成指纹的期望值） */
+const AA_BACKGROUND = {A:8.25,R:5.53,N:4.06,D:5.45,C:1.38,Q:3.93,E:6.75,G:7.07,H:2.27,I:5.96,
+  L:9.66,K:5.84,M:2.42,F:3.86,P:4.70,S:6.56,T:5.34,W:1.10,Y:2.92,V:6.87};
+const AA_LIST = ['A','R','N','D','C','Q','E','G','H','I','L','K','M','F','P','S','T','W','Y','V'];
+const AA1TO3 = {A:'ALA',R:'ARG',N:'ASN',D:'ASP',C:'CYS',Q:'GLN',E:'GLU',G:'GLY',H:'HIS',I:'ILE',
+  L:'LEU',K:'LYS',M:'MET',F:'PHE',P:'PRO',S:'SER',T:'THR',W:'TRP',Y:'TYR',V:'VAL'};
+/* 侧链化学性质（用于相互作用判定） */
+const CHARGED_POS_ATOMS = {ARG:['NH1','NH2','NE'],LYS:['NZ'],HIS:['ND1','NE2'],HID:['ND1','NE2'],HIE:['ND1','NE2'],HIP:['ND1','NE2']};
+const CHARGED_NEG_ATOMS = {ASP:['OD1','OD2'],GLU:['OE1','OE2']};
+
+/* ---- 向量与几何 ---- */
+const sub  = (a,b)=>({x:a.x-b.x,y:a.y-b.y,z:a.z-b.z});
+const add  = (a,b)=>({x:a.x+b.x,y:a.y+b.y,z:a.z+b.z});
+const scl  = (a,k)=>({x:a.x*k,y:a.y*k,z:a.z*k});
+const dot  = (a,b)=>a.x*b.x+a.y*b.y+a.z*b.z;
+const cross= (a,b)=>({x:a.y*b.z-a.z*b.y,y:a.z*b.x-a.x*b.z,z:a.x*b.y-a.y*b.x});
+const len  = a=>Math.hypot(a.x,a.y,a.z);
+const norm = a=>{const n=Math.hypot(a.x,a.y,a.z)||1;return{x:a.x/n,y:a.y/n,z:a.z/n};};
+const dist = (a,b)=>Math.hypot(a.x-b.x,a.y-b.y,a.z-b.z);
+const d2   = (a,b)=>{const dx=a.x-b.x,dy=a.y-b.y,dz=a.z-b.z;return dx*dx+dy*dy+dz*dz;};
+const pos  = a=>({x:a.x,y:a.y,z:a.z});
+const centroid = arr=>{const c={x:0,y:0,z:0};for(const a of arr){c.x+=a.x;c.y+=a.y;c.z+=a.z;}const n=arr.length||1;return{x:c.x/n,y:c.y/n,z:c.z/n};};
+
+/* 侧链 / 主链判定 */
+function isBackbone(name){return name==='N'||name==='CA'||name==='C'||name==='O'||name==='OXT';}
+function aa1(resn){return AA3TO1[resn]||'X';}
+
+/* =====================================================================================
+   2. 结构解析与数据模型
+   ===================================================================================== */
+function guessElem(name,resn){
+  const nm=(name||'').trim();
+  if(!nm) return 'C';
+  const stripped=nm.replace(/^[0-9]+/,'');
+  if(/^[HD]/.test(stripped)) return stripped[0];
+  return stripped[0]||'C';
+}
+function isHAtom(a){
+  const el=(a.elem||'').toUpperCase();
+  if(el==='H'||el==='D') return true;
+  if(el&&el!=='') return false;
+  const nm=(a.name||'').trim().replace(/^[0-9]+/,'');
+  return /^[HD]/.test(nm);
+}
+/* 从 3Dmol model 抽取纯数据原子表（不依赖 3Dmol 后续操作，便于单元验证） */
+function atomsFromModel(model){
+  const raw=model.selectedAtoms({});
+  const out=new Array(raw.length);
+  for(let i=0;i<raw.length;i++){
+    const a=raw[i];
+    const name=(a.atom||a.name||'').trim().toUpperCase();
+    const elem=((a.elem||'')+'').trim().toUpperCase()||guessElem(name,a.resn);
+    out[i]={
+      idx:i, serial:a.serial||i+1, name,
+      elem, x:+a.x, y:+a.y, z:+a.z,
+      resn:((a.resn||'')+'').trim().toUpperCase(),
+      resi:((a.resi!==undefined?a.resi:'')+'').trim(),
+      chain:(a.chain===undefined||a.chain===null||a.chain==='')?'_':(''+a.chain).trim(),
+      het:!!a.hetflag, b:+(a.b||0), occ:+(a.occ===undefined?1:a.occ),
+      model:0
+    };
+  }
+  return out;
+}
+const resKeyOf = a => a.chain+'|'+a.resn+'|'+a.resi;
+const resKeyStr = (chain,resn,resi) => chain+'|'+resn+'|'+resi;
+const resLabel = r => r.resn+r.resi+':'+r.chain;
+/* 按 链 → 残基序号 → 插入码 排序 */
+function resiSortVal(resi){const m=/^(-?\d+)(.*)$/.exec(resi);return m?parseInt(m[1],10):0;}
+function sortResidues(list){
+  return list.slice().sort((a,b)=>{
+    if(a.chain!==b.chain) return a.chain<b.chain?-1:1;
+    const na=resiSortVal(a.resi),nb=resiSortVal(b.resi);
+    if(na!==nb) return na-nb;
+    return a.resi<b.resi?-1:(a.resi>b.resi?1:0);
+  });
+}
+/* 聚合为残基对象；仅保留重原子 */
+function buildResidues(atoms,opts){
+  opts=opts||{};
+  const includeHet=!!opts.includeHet;
+  const map=new Map();
+  for(let i=0;i<atoms.length;i++){
+    const a=atoms[i];
+    if(a.elem==='H'||a.elem==='D') continue;
+    if(WATERS.has(a.resn)) continue;
+    const standard=AA_LIKE.has(a.resn);
+    if(!standard&&!includeHet) continue;
+    const k=resKeyOf(a);
+    let r=map.get(k);
+    if(!r){ r={key:k,chain:a.chain,resn:a.resn,resi:a.resi,atoms:[],isAA:standard,het:!standard}; map.set(k,r); }
+    r.atoms.push(a);
+  }
+  return sortResidues([...map.values()]);
+}
+/* 提取链与基本信息 */
+function detectChains(atoms,residues){
+  const map=new Map();
+  for(const r of residues){
+    if(!map.has(r.chain)) map.set(r.chain,{id:r.chain,residues:[],nAtoms:0});
+    const c=map.get(r.chain); c.residues.push(r); c.nAtoms+=r.atoms.length;
+  }
+  const chains=[...map.values()];
+  chains.forEach((c,i)=>{
+    c.color=CHAIN_PALETTE[i%CHAIN_PALETTE.length];
+    c.role='NA';
+    c.cdr={};
+    c.seq=c.residues.filter(r=>r.isAA).map(r=>aa1(r.resn));
+  });
+  return chains;
+}
+/* 结构对象 */
+let _cxSeq=0;
+function makeComplex(name,text,fmt,atoms){
+  const residues=buildResidues(atoms,{includeHet:false});
+  /* 非标准残基（糖基 / 配体 / 修饰残基）单独保存：仅在勾选「计入界面」时参与界面与面积统计 */
+  const hetResidues=buildResidues(atoms,{includeHet:true}).filter(r=>!r.isAA);
+  const chains=detectChains(atoms,residues);
+  return {
+    id:'cx'+(++_cxSeq), name, text, fmt, atoms, residues, hetResidues, chains,
+    selected:new Set(chains.map(c=>c.id)),
+    hidden:new Set(), labelOffset:{},
+    ana:null, ab:null, sasa:null
+  };
+}
+/* 原子表按链快速索引 */
+function atomsByChain(atoms){
+  const m=new Map();
+  for(const a of atoms){ if(!m.has(a.chain)) m.set(a.chain,[]); m.get(a.chain).push(a); }
+  return m;
+}
+/* 残基是否属于选中链且未被隐藏 */
+function resVisible(cx,r){ return cx.selected.has(r.chain) && !cx.hidden.has(r.key); }
+
+/*__PART2_END__*/
+
+/* =====================================================================================
+   3. 界面相互作用引擎
+   ===================================================================================== */
+/* ---- 空间网格，用于邻居搜索 ---- */
+function makeGrid(atoms,cell){
+  const g=new Map();
+  for(let i=0;i<atoms.length;i++){
+    const a=atoms[i];
+    const k=Math.floor(a.x/cell)+','+Math.floor(a.y/cell)+','+Math.floor(a.z/cell);
+    let arr=g.get(k); if(!arr){arr=[];g.set(k,arr);}
+    arr.push(a);
+  }
+  return {cell,map:g};
+}
+function gridNear(grid,p,R,cb){
+  const c=grid.cell,r=Math.ceil(R/c),R2=R*R;
+  const ix=Math.floor(p.x/c),iy=Math.floor(p.y/c),iz=Math.floor(p.z/c);
+  for(let i=ix-r;i<=ix+r;i++)for(let j=iy-r;j<=iy+r;j++)for(let k=iz-r;k<=iz+r;k++){
+    const arr=grid.map.get(i+','+j+','+k);
+    if(!arr) continue;
+    for(let t=0;t<arr.length;t++){ const b=arr[t]; if(d2(b,p)<=R2) cb(b); }
+  }
+}
+function gridNearest(grid,p,R){
+  const c=grid.cell,r=Math.ceil(R/c),R2=R*R;
+  const ix=Math.floor(p.x/c),iy=Math.floor(p.y/c),iz=Math.floor(p.z/c);
+  let best=null,bd=R2;
+  for(let i=ix-r;i<=ix+r;i++)for(let j=iy-r;j<=iy+r;j++)for(let k=iz-r;k<=iz+r;k++){
+    const arr=grid.map.get(i+','+j+','+k);
+    if(!arr) continue;
+    for(let t=0;t<arr.length;t++){ const b=arr[t]; const dd=d2(b,p); if(dd<=bd){bd=dd;best=b;} }
+  }
+  return best?{atom:best,d:Math.sqrt(bd)}:null;
+}
+
+/* ---- 供体 / 受体原子分类（按残基类型 + 原子名） ----
+   只把化学上真正能给出 / 接受氢的原子纳入判据，避免把羰基氧、Asp/Glu 羧基氧
+   等纯受体当作供体补氢而虚增氢键。 */
+const DONOR_SC = {
+  LYS:['NZ'], ARG:['NE','NH1','NH2'], HIS:['ND1','NE2'], TRP:['NE1'],
+  ASN:['ND2'], GLN:['NE2'], SER:['OG'], THR:['OG1'], TYR:['OH'], CYS:['SG']
+};
+const ACCEPTOR_SC = {
+  ASP:['OD1','OD2'], GLU:['OE1','OE2'], ASN:['OD1'], GLN:['OE1'],
+  SER:['OG'], THR:['OG1'], TYR:['OH'], HIS:['ND1','NE2'], CYS:['SG']
+};
+/* 可旋转供体（羟基/巯基/氨基氢取向不确定或存在多个氢）：改用 D···A 距离判据 */
+const FLEX_DONOR = {LYS:1, ARG:1, ASN:1, GLN:1, SER:1, THR:1, TYR:1, CYS:1};
+function canDonate(resn,name){
+  if(name==='N') return resn!=='PRO';                       // 主链酰胺氮（Pro 无氢）
+  const l=DONOR_SC[resn]; return !!(l&&l.indexOf(name)>=0);
+}
+function canAccept(resn,name){
+  if(name==='O'||name==='OXT') return true;                 // 主链羰基氧
+  const l=ACCEPTOR_SC[resn]; return !!(l&&l.indexOf(name)>=0);
+}
+/* D–H···A 夹角 ≥ 120°（线性时两矢量反向，点积 ≈ −1） */
+function dhaOk(d,h,a){ return dot(norm(sub(d,h)),norm(sub(a,h)))<=-0.5; }
+
+/* ---- 极性氢：结构自带 + 缺失时按几何补建 ----
+   补氢方向：N/O 若已有 ≥2 个重原子邻居，沿“反向和矢量”方向；否则在单键上方按 109.5°/120° 张角放置。 */
+function buildPolarH(heavyAtoms,grid,limitKeys){
+  const out=[];
+  for(let i=0;i<heavyAtoms.length;i++){
+    const a=heavyAtoms[i];
+    if(!canDonate(a.resn,a.name)) continue;
+    if(limitKeys&&!limitKeys.has(resKeyOf(a))) continue;
+    // 已有氢则不补
+    let hasH=false;
+    gridNear(grid,a,1.35,b=>{ if(b.elem==='H'||b.elem==='D') hasH=true; });
+    if(hasH) continue;
+    const nb=[];
+    gridNear(grid,a,2.05,b=>{ if(b!==a&&(b.elem==='N'||b.elem==='O'||b.elem==='C'||b.elem==='S')) nb.push(b); });
+    if(!nb.length) continue;
+    let dir=null;
+    const bondMax=a.elem==='O'?1.45:1.60;
+    const close=nb.filter(b=>dist(a,b)<=bondMax);
+    if(close.length>=2){
+      const s={x:0,y:0,z:0};
+      close.forEach(b=>{const u=norm(sub(a,b));s.x+=u.x;s.y+=u.y;s.z+=u.z;});
+      if(Math.hypot(s.x,s.y,s.z)>0.15) dir=norm(s);
+    }else if(close.length===1){
+      const b=close[0],axis=norm(sub(a,b));
+      let ref={x:0,y:0,z:1}; if(Math.abs(axis.z)>0.9) ref={x:1,y:0,z:0};
+      const perp=norm(cross(axis,ref));
+      const ang=(a.elem==='O'?109.5:120)*Math.PI/180;
+      const c0=Math.cos(ang),s0=Math.sin(ang);
+      dir=norm({x:axis.x*c0+perp.x*s0,y:axis.y*c0+perp.y*s0,z:axis.z*c0+perp.z*s0});
+    }else{
+      // 无理想键长邻居：取最近邻作为单键
+      let bb=null,bd=1e9; nb.forEach(b=>{const d=dist(a,b); if(d<bd){bd=d;bb=b;}});
+      if(!bb||bd>2.6) continue;
+      const axis=norm(sub(a,bb));
+      let ref={x:0,y:0,z:1}; if(Math.abs(axis.z)>0.9) ref={x:1,y:0,z:0};
+      const perp=norm(cross(axis,ref));
+      const ang=(a.elem==='O'?109.5:120)*Math.PI/180;
+      dir=norm({x:axis.x*Math.cos(ang)+perp.x*Math.sin(ang),y:axis.y*Math.cos(ang)+perp.y*Math.sin(ang),z:axis.z*Math.cos(ang)+perp.z*Math.sin(ang)});
+    }
+    if(!dir) continue;
+    const bl=a.elem==='O'?0.96:1.01;
+    out.push({x:a.x+dir.x*bl,y:a.y+dir.y*bl,z:a.z+dir.z*bl,elem:'H',parent:a,
+      flex:!!FLEX_DONOR[a.resn]});
+  }
+  return out;
+}
+
+/* ---- 芳香环几何 ---- */
+function ringGeom(ring){
+  const c=centroid(ring);
+  let n={x:0,y:0,z:0};
+  for(let i=0;i<ring.length;i++){
+    const va=sub(ring[i],c),vb=sub(ring[(i+1)%ring.length],c),cr=cross(va,vb);
+    n.x+=cr.x;n.y+=cr.y;n.z+=cr.z;
+  }
+  return {c,n:norm(n)};
+}
+function named(res,nm){ return res.atomIndex.get(nm); }
+function aromRings(res){
+  const defs=AROM_RINGS[res.resn]; if(!defs) return [];
+  const out=[];
+  for(const names of defs){
+    const ring=[]; let ok=true;
+    for(const nm of names){ const a=res.atomIndex.get(nm); if(!a){ok=false;break;} ring.push(a); }
+    if(ok&&ring.length>=5) out.push(ringGeom(ring));
+  }
+  return out;
+}
+function chargedPos(res){
+  const names=CHARGED_POS_ATOMS[res.resn]; if(!names) return [];
+  const out=[]; for(const nm of names){const a=res.atomIndex.get(nm); if(a) out.push(a);} return out;
+}
+function chargedNeg(res){
+  const names=CHARGED_NEG_ATOMS[res.resn]; if(!names) return [];
+  const out=[]; for(const nm of names){const a=res.atomIndex.get(nm); if(a) out.push(a);} return out;
+}
+function sidechainC(res){ return res.atoms.filter(a=>a.elem==='C'&&!isBackbone(a.name)); }
+
+/* ---- 给残基列表建立原子名索引 ---- */
+function indexResidues(residues){
+  for(const r of residues){
+    if(!r.atomIndex){
+      r.atomIndex=new Map();
+      for(const a of r.atoms) if(!r.atomIndex.has(a.name)) r.atomIndex.set(a.name,a);
+    }
+  }
+  return residues;
+}
+
+/* ---- 界面 + 相互作用主计算 ----
+   枚举半径固定 6.5 Å（覆盖最长的 π–π / 阳离子–π 判据），
+   是否属于“界面残基”仍由用户设定的接触截断或 ΔASA 决定。 */
+const ENUM_R = 6.5;
+function computeInterface(cx,opt){
+  const cutoff=opt.cutoff, includeHet=!!opt.includeHet;
+  const selChains=[...cx.selected].sort();
+  const resMap=new Map();
+  const active=[];
+  /* includeHet 时把糖基 / 配体等非标准残基一并纳入界面枚举 */
+  const pool=(includeHet&&cx.hetResidues)?cx.residues.concat(cx.hetResidues):cx.residues;
+  for(const r of pool){
+    if(!cx.selected.has(r.chain)) continue;
+    if(!r.isAA&&!includeHet) continue;
+    resMap.set(r.key,r); active.push(r);
+  }
+  indexResidues(active);
+  const heavyAll=[]; for(const r of active) for(const a of r.atoms) heavyAll.push(a);
+  const heavyGrid=makeGrid(heavyAll,Math.max(ENUM_R,5));
+
+  const pairStats=new Map();   // canonical pairKey -> {keyA,keyB,n,minD,minA,minB}
+  const interactions=[];
+  const saltPairs=new Set();
+  const pkey=(a,b)=>a<b?a+'~'+b:b+'~'+a;
+
+  for(let ci=0;ci<selChains.length;ci++)for(let cj=ci+1;cj<selChains.length;cj++){
+    const ca=selChains[ci], cb=selChains[cj];
+    const A=[],B=[];
+    for(const r of active){ if(r.chain===ca) A.push(r); else if(r.chain===cb) B.push(r); }
+    if(!A.length||!B.length) continue;
+    // 以 B 侧建网格，遍历 A 侧原子
+    const bAtoms=[]; for(const r of B) for(const a of r.atoms) bAtoms.push(a);
+    const gridB=makeGrid(bAtoms,ENUM_R);
+    for(const ra of A){
+      for(const a of ra.atoms){
+        gridNear(gridB,a,ENUM_R,b=>{
+          const rb=resMap.get(resKeyOf(b)); if(!rb) return;
+          const k=pkey(ra.key,rb.key);
+          let e=pairStats.get(k);
+          if(!e){ e={keyA:ra.key<rb.key?ra.key:rb.key,keyB:ra.key<rb.key?rb.key:ra.key,n:0,minD:1e9,minA:null,minB:null,chars:0,cCounts:{}}; pairStats.set(k,e); }
+          const d=Math.sqrt(d2(a,b));
+          if(d<e.minD){ e.minD=d; e.minA=a; e.minB=b; }
+          if(d<=cutoff){
+            e.n++;
+            const el1=a.elem==='C'?'C':'P', el2=b.elem==='C'?'C':'P';   // C / 极性(P) 分类
+            const ck=el1+el2;
+            e.cCounts[ck]=(e.cCounts[ck]||0)+1;
+          }
+        });
+      }
+    }
+  }
+
+  /* ---- 逐残基对做化学分类 ---- */
+  for(const e of pairStats.values()){
+    const ra=resMap.get(e.keyA), rb=resMap.get(e.keyB);
+    if(!ra||!rb) continue;
+    const push=(kind,pa,pb,d,extra)=>{
+      interactions.push(Object.assign({
+        kind, keyA:ra.key, keyB:rb.key, chainA:ra.chain, chainB:rb.chain,
+        resA:resLabel(ra), resB:resLabel(rb), pa:pos(pa), pb:pos(pb),
+        dist:d, nContact:e.n
+      },extra||{}));
+    };
+    // 二硫键
+    if(ra.resn.startsWith('CY')&&rb.resn.startsWith('CY')){
+      const sa=ra.atomIndex.get('SG'), sb=rb.atomIndex.get('SG');
+      if(sa&&sb){ const d=dist(sa,sb); if(d<=2.5) push('disulfide',sa,sb,d,{atomA:'SG',atomB:'SG'}); }
+    }
+    // 盐桥（≤4.5 Å）
+    let sbBest=null;
+    for(const p of chargedPos(ra)) for(const n of chargedNeg(rb)){ const d=dist(p,n); if(d<=4.5&&(!sbBest||d<sbBest.d)) sbBest={p,n,d,aa:p,rb2:n,posA:true}; }
+    for(const n of chargedNeg(ra)) for(const p of chargedPos(rb)){ const d=dist(n,p); if(d<=4.5&&(!sbBest||d<sbBest.d)) sbBest={p:n,n:p,d,aa:n,rb2:p,posA:false}; }
+    if(sbBest) push('saltbridge',sbBest.p,sbBest.n,sbBest.d,{atomA:sbBest.aa.name,atomB:sbBest.rb2.name});
+    // π–π
+    const ringsA=aromRings(ra), ringsB=aromRings(rb);
+    let ppBest=null;
+    for(const x of ringsA) for(const y of ringsB){
+      const d=dist(x.c,y.c); if(d<3.3||d>6.0) continue;
+      const cn=Math.abs(dot(x.n,y.n));
+      if(cn>0.7||cn<0.4){ if(!ppBest||d<ppBest.d) ppBest={x,y,d,cn}; }
+    }
+    if(ppBest) push('pipi',ppBest.x.c,ppBest.y.c,ppBest.d,{stacking:ppBest.cn>0.7?'平行':'T 型'});
+    // 阳离子–π
+    const pcHit=(ring,cat)=>{ const d=dist(ring.c,cat); if(d<3||d>6) return false;
+      const v=sub(cat,ring.c), n=len(v)||1; return Math.abs(dot(ring.n,v)/n)>0.6; };
+    let pcBest=null;
+    for(const rg of ringsA) for(const c of chargedPos(rb)) if(pcHit(rg,c)){ const d=dist(rg.c,c); if(!pcBest||d<pcBest.d) pcBest={rc:rg.c,cc:pos(c),d,ringRes:ra,catRes:rb}; }
+    for(const rg of ringsB) for(const c of chargedPos(ra)) if(pcHit(rg,c)){ const d=dist(rg.c,c); if(!pcBest||d<pcBest.d) pcBest={rc:pos(c),cc:rg.c,d,ringRes:rb,catRes:ra}; }
+    if(pcBest) push('pication',pcBest.rc,pcBest.cc,pcBest.d);
+    // 疏水接触（侧链 C–C ≤ 4.5 Å）
+    if(HYDROPHOBIC.has(ra.resn)&&HYDROPHOBIC.has(rb.resn)){
+      let hy=null;
+      for(const p of sidechainC(ra)) for(const q of sidechainC(rb)){ const d=dist(p,q); if(d<=4.5&&(!hy||d<hy.d)) hy={p,q,d}; }
+      if(hy) push('hydrophobic',hy.p,hy.q,hy.d,{atomA:hy.p.name,atomB:hy.q.name});
+    }
+    if(sbBest){ saltPairs.add(ra.key+'~'+rb.key); saltPairs.add(rb.key+'~'+ra.key); }
+  }
+
+  /* ---- 氢键 ---- */
+  const polarH=[];
+  if(opt.hbondMode==='geom'){
+    // 结构自带氢（真实氢坐标 → 走刚性几何判据）
+    const hAtoms=cx.atoms.filter(a=>cx.selected.has(a.chain)&&(a.elem==='H'||a.elem==='D'));
+    for(const h of hAtoms){
+      const n=gridNearest(heavyGrid,h,1.35);
+      if(n&&n.atom&&(n.atom.elem==='N'||n.atom.elem==='O'||n.atom.elem==='S')) polarH.push({x:h.x,y:h.y,z:h.z,parent:n.atom,flex:false});
+    }
+    if(opt.addH){
+      const ifaceKeys=new Set();
+      for(const e of pairStats.values()) if(e.n>0){ ifaceKeys.add(e.keyA); ifaceKeys.add(e.keyB); }
+      const built=buildPolarH(heavyAll,heavyGrid,ifaceKeys);
+      for(const b of built) polarH.push(b);
+    }
+    const acceptors=[];
+    for(const r of active) for(const a of r.atoms) if(canAccept(r.resn,a.name)) acceptors.push(a);
+    const accGrid=makeGrid(acceptors,3.0);
+    const best=new Map();
+    for(const h of polarH){
+      if(!h.parent) continue;
+      const don=h.parent, donRes=resMap.get(resKeyOf(don)); if(!donRes) continue;
+      // 刚性供体：H···A ≤ 2.7 Å 且 D–H···A ≥ 120°；柔性供体：D···A ≤ 3.4 Å
+      const ctr=h.flex?don:h, R=h.flex?3.4:2.7;
+      gridNear(accGrid,ctr,R,a=>{
+        if(a===don) return;
+        const accRes=resMap.get(resKeyOf(a)); if(!accRes) return;
+        if(accRes.key===donRes.key) return;
+        if(accRes.chain===donRes.chain) return;                // 仅统计跨链相互作用
+        if(saltPairs.has(donRes.key+'~'+accRes.key)) return;   // 已记盐桥的不重复计氢键
+        let d;
+        if(h.flex){ d=dist(don,a); if(d>3.4) return; }
+        else { d=dist(h,a); if(d>2.7) return; if(!dhaOk(don,h,a)) return; }
+        const k=donRes.key+'~'+accRes.key;
+        const prev=best.get(k);
+        if(!prev||d<prev.dist) best.set(k,{
+          kind:'hbond', keyA:donRes.key, keyB:accRes.key, chainA:donRes.chain, chainB:accRes.chain,
+          resA:resLabel(donRes), resB:resLabel(accRes), pa:{x:h.x,y:h.y,z:h.z}, pb:pos(a),
+          dist:d, atomA:don.name, atomB:a.name, nContact:(pairStats.get(pkey(donRes.key,accRes.key))||{n:0}).n,
+          haLen:dist(h,a), flex:!!h.flex
+        });
+      });
+    }
+    for(const v of best.values()) interactions.push(v);
+  }else{
+    // 距离判据：任意 N/O 重原子间 ≤ 3.5 Å
+    const polar=[];
+    for(const r of active) for(const a of r.atoms) if(a.elem==='N'||a.elem==='O') polar.push(a);
+    const pg=makeGrid(polar,3.5);
+    const best=new Map();
+    for(const a of polar){
+      const ra=resMap.get(resKeyOf(a)); if(!ra) continue;
+      gridNear(pg,a,3.5,b=>{
+        if(a.idx>=b.idx) return;
+        const rb=resMap.get(resKeyOf(b)); if(!rb||rb.key===ra.key) return;
+        if(rb.chain===ra.chain) return;                        // 仅统计跨链相互作用
+        if(saltPairs.has(ra.key+'~'+rb.key)) return;
+        const d=dist(a,b);
+        const k=ra.key+'~'+rb.key;
+        const prev=best.get(k);
+        if(!prev||d<prev.dist) best.set(k,{
+          kind:'hbond', keyA:ra.key, keyB:rb.key, chainA:ra.chain, chainB:rb.chain,
+          resA:resLabel(ra), resB:resLabel(rb), pa:pos(a), pb:pos(b), dist:d,
+          atomA:a.name, atomB:b.name, nContact:(pairStats.get(pkey(ra.key,rb.key))||{n:0}).n
+        });
+      });
+    }
+    for(const v of best.values()) interactions.push(v);
+  }
+
+  /* ---- 水桥：同一个水分子同时接触两条不同链的极性原子 ---- */
+  const watersAll=cx.atoms.filter(a=>WATERS.has(a.resn)&&cx.selected.has(a.chain)&&a.elem==='O');
+  if(watersAll.length){
+    const polarAll=[];
+    for(const r of active) for(const a of r.atoms) if(a.elem==='N'||a.elem==='O') polarAll.push(a);
+    const pg=makeGrid(polarAll,3.5);
+    for(const w of watersAll){
+      const hits=[];
+      gridNear(pg,w,3.5,a=>{
+        const r=resMap.get(resKeyOf(a));
+        if(r) hits.push({a,res:r});
+      });
+      if(hits.length<2) continue;
+      for(let i=0;i<hits.length;i++)for(let j=i+1;j<hits.length;j++){
+        const h1=hits[i],h2=hits[j];
+        if(h1.res.chain===h2.res.chain) continue;
+        interactions.push({
+          kind:'waterbridge', keyA:h1.res.key, keyB:h2.res.key, chainA:h1.res.chain, chainB:h2.res.chain,
+          resA:resLabel(h1.res), resB:resLabel(h2.res),
+          pa:h1.a, pb:h2.a, dist:dist(h1.a,h2.a),
+          atomA:h1.a.name, atomB:h2.a.name, water:{x:w.x,y:w.y,z:w.z},
+          d1:dist(w,h1.a), d2:dist(w,h2.a), nContact:0
+        });
+      }
+    }
+  }
+
+  /* ---- 汇总：界面残基、接触统计 ---- */
+  const resStat=new Map();
+  const touch=(key,otherKey,n,minD,fromA)=>{
+    let s=resStat.get(key);
+    if(!s){ s={key,contacts:0,partners:new Set(),minDist:1e9,chars:{}}; resStat.set(key,s); }
+    s.contacts+=n;
+    s.partners.add(otherKey);
+    if(minD<s.minDist) s.minDist=minD;
+  };
+  for(const e of pairStats.values()){
+    if(e.n>0){ touch(e.keyA,e.keyB,e.n,e.minD); touch(e.keyB,e.keyA,e.n,e.minD); }
+    for(const k in e.cCounts){
+      for(const key of [e.keyA,e.keyB]){
+        let s=resStat.get(key);
+        if(!s){ s={key,contacts:0,partners:new Set(),minDist:1e9,chars:{}}; resStat.set(key,s); }
+        s.chars[k]=(s.chars[k]||0)+e.cCounts[k];
+      }
+    }
+  }
+  // 相互作用计数
+  const ifaceKeysDist=new Set(resStat.keys());
+  const kindCount={};
+  for(const it of interactions){ kindCount[it.kind]=(kindCount[it.kind]||0)+1; }
+
+  return {
+    cutoff, enumR:ENUM_R, hbondMode:opt.hbondMode,
+    chains:selChains, resMap, active,
+    pairStats, interactions, resStat,
+    ifaceKeysDist, kindCount,
+    saltPairs
+  };
+}
+
+/*__PART3_END__*/
+
+/* =====================================================================================
+   4. 溶剂可及表面积 SASA / 埋藏面积 BSA（Shrake–Rupley 数值法）
+   ===================================================================================== */
+const _sphereCache={};
+function spherePoints(n){
+  if(_sphereCache[n]) return _sphereCache[n];
+  const pts=new Array(n);
+  const inc=Math.PI*(3-Math.sqrt(5));
+  const off=2/n;
+  for(let k=0;k<n;k++){
+    const y=k*off-1+off/2;
+    const r=Math.sqrt(Math.max(0,1-y*y));
+    const phi=k*inc;
+    pts[k]={x:Math.cos(phi)*r,y,z:Math.sin(phi)*r};
+  }
+  _sphereCache[n]=pts;
+  return pts;
+}
+/* 返回逐原子 SASA（Å²）。atoms 需为“参与计算的原子集合”，通常只含重原子。 */
+function computeSASA(atoms,nPts,probe){
+  probe=probe===undefined?1.4:probe;
+  const n=atoms.length;
+  if(!n) return new Float64Array(0);
+  const rad=new Float64Array(n);
+  let maxR=0;
+  for(let i=0;i<n;i++){ const r=(ELEM_RADIUS[atoms[i].elem]||1.70)+probe; rad[i]=r; if(r>maxR) maxR=r; }
+  const cell=maxR;
+  const idx=new Map();
+  for(let i=0;i<n;i++){
+    const a=atoms[i];
+    const k=Math.floor(a.x/cell)+','+Math.floor(a.y/cell)+','+Math.floor(a.z/cell);
+    let arr=idx.get(k); if(!arr){arr=[];idx.set(k,arr);}
+    arr.push(i);
+  }
+  const pts=spherePoints(nPts);
+  const area=new Float64Array(n);
+  for(let i=0;i<n;i++){
+    const ai=atoms[i], ri=rad[i];
+    const rng=ri+maxR, r=Math.ceil(rng/cell);
+    const ix=Math.floor(ai.x/cell), iy=Math.floor(ai.y/cell), iz=Math.floor(ai.z/cell);
+    let nbJ=null,nbR=null,nbN=0;
+    for(let x=ix-r;x<=ix+r;x++)for(let y=iy-r;y<=iy+r;y++)for(let z=iz-r;z<=iz+r;z++){
+      const arr=idx.get(x+','+y+','+z);
+      if(!arr) continue;
+      for(let t=0;t<arr.length;t++){
+        const j=arr[t]; if(j===i) continue;
+        const s=ri+rad[j];
+        const dx=atoms[j].x-ai.x, dy=atoms[j].y-ai.y, dz=atoms[j].z-ai.z;
+        if(dx*dx+dy*dy+dz*dz<s*s){
+          if(!nbJ){ nbJ=[]; nbR=[]; }
+          nbJ[nbN]=j; nbR[nbN]=rad[j]*rad[j]; nbN++;
+        }
+      }
+    }
+    let acc=0;
+    if(!nbN){
+      acc=nPts;
+    }else{
+      for(let p=0;p<nPts;p++){
+        const P=pts[p];
+        const px=ai.x+P.x*ri, py=ai.y+P.y*ri, pz=ai.z+P.z*ri;
+        let buried=false;
+        for(let t=0;t<nbN;t++){
+          const j=nbJ[t];
+          const dx=px-atoms[j].x, dy=py-atoms[j].y, dz=pz-atoms[j].z;
+          if(dx*dx+dy*dy+dz*dz<nbR[t]){ buried=true; break; }
+        }
+        if(!buried) acc++;
+      }
+    }
+    area[i]=4*Math.PI*ri*ri*acc/nPts;
+  }
+  return area;
+}
+/* 只保留蛋白重原子（排除水；按需排除/包含非标准残基） */
+function proteinHeavyAtoms(cx,chains,includeHet){
+  const set=chains?new Set(chains):null;
+  const out=[];
+  for(const a of cx.atoms){
+    if(a.elem==='H'||a.elem==='D') continue;
+    if(WATERS.has(a.resn)) continue;
+    if(!AA_LIKE.has(a.resn)&&!includeHet) continue;
+    if(set&&!set.has(a.chain)) continue;
+    out.push(a);
+  }
+  return out;
+}
+/* 对一组原子求逐残基 SASA 与总和 */
+function sasaResidue(atoms,nPts,probe){
+  const per=computeSASA(atoms,nPts,probe);
+  const by=new Map();
+  let total=0;
+  for(let i=0;i<atoms.length;i++){
+    const v=per[i]; total+=v;
+    const k=resKeyOf(atoms[i]);
+    by.set(k,(by.get(k)||0)+v);
+  }
+  return {total,by,per};
+}
+/* 计算分组 BSA/ΔASA。groups = [{id,name,chains:[...],role}] */
+function computeBSA(cx,groups,nPts,probe,includeHet){
+  const res={groups:[],pairs:[]};
+  const gAtoms=groups.map(g=>proteinHeavyAtoms(cx,g.chains,includeHet));
+  const gSasa=gAtoms.map(a=>sasaResidue(a,nPts,probe));
+  groups.forEach((g,i)=>{
+    res.groups.push({id:g.id,name:g.name,role:g.role,chains:g.chains,nAtoms:gAtoms[i].length,sasa:gSasa[i].total,by:gSasa[i].by});
+  });
+  // 复合物整体 SASA（所有分组原子一起）
+  const allAtoms=[];
+  for(const a of gAtoms) for(const x of a) allAtoms.push(x);
+  const cplx=sasaResidue(allAtoms,nPts,probe);
+  res.complexSasa=cplx.total;
+  // 两两组合
+  for(let i=0;i<groups.length;i++)for(let j=i+1;j<groups.length;j++){
+    const union=gAtoms[i].concat(gAtoms[j]);
+    const u=sasaResidue(union,nPts,probe);
+    const bsa=(gSasa[i].total+gSasa[j].total-u.total)/2;
+    // 逐残基 ΔASA
+    const dASA=new Map();
+    const addAll=(src,srcSasa,sign)=>{
+      for(const [k,v] of srcSasa.by){
+        dASA.set(k,(dASA.get(k)||0)+sign*v);
+      }
+    };
+    addAll(null,gSasa[i],1); addAll(null,gSasa[j],1); addAll(null,u,-1);
+    res.pairs.push({
+      i,j,a:groups[i].id,b:groups[j].id,
+      aName:groups[i].name,bName:groups[j].name,
+      sasaA:gSasa[i].total,sasaB:gSasa[j].total,sasaAB:u.total,
+      bsa, dASA
+    });
+  }
+  // 若只有一个分组，则把“整体 vs 单独”作为参照
+  res.nPts=nPts; res.probe=probe;
+  return res;
+}
+
+/*__PART4_END__*/
+
+/* =====================================================================================
+   5. 抗体识别 · CDR 编号 · 抗体专属分析
+   =====================================================================================
+   抗体链在 PDB 中常常是 1..N 顺序编号（并非 Kabat/IMGT 编号），因此本工具不依赖文件编号，
+   而是用 V 区四个高度保守的锚点残基在链内的顺序位置定位 CDR：
+     c1  第 1 个保守 Cys（IMGT 23）
+     w2  FR2 保守 Trp（IMGT 41，其后第 3 位为 R/K/Q/H）
+     c2  第 2 个保守 Cys（IMGT 104）
+     f4  FR4 的 J-Trp / J-Phe（IMGT 118，F/W-G-X-G 基序的首位）
+   锚点对应 IMGT 唯一编号中 V-DOMAIN 的保守位点（Lefranc 等）。CDR 边界按各方案由锚点换算。
+   Kabat / Chothia 采用教科书定义（已在 3HFM Fab–溶菌酶复合物上验证得到
+   CDR-L1 RASQSIGNNLH、CDR-L2 YASQSIS、CDR-L3 QQSNSWPYT、CDR-H1 SDYWS、
+   CDR-H2 YVSYSGSTYYNPSLKS、CDR-H3 ANWDGDY）；IMGT 为锚点近似（CDR3 与 IMGT 定义一致）。
+   ===================================================================================== */
+
+/* V 区各区域配色（用于「按 CDR 区域」着色） */
+const CDR_COLOR = {CDR1:'#e8618c', CDR2:'#efa03c', CDR3:'#c9403a'};
+const FR_COLOR = '#9fb3cf';
+const CONST_COLOR = '#ccd6e4';
+const REGION_ORDER = ['FR1','CDR1','FR2','CDR2','FR3','CDR3','FR4'];
+const AB_MIN_SCORE = 6;
+const FR2_TRP3 = 'RKQH';        // FR2 保守 Trp 之后第 3 位残基特征
+
+/* 各 CDR 定义方案：由锚点换算 [起, 止]（0 基索引，闭区间，相对于该链的 V 区残基数组） */
+const CDR_SCHEMES = {
+  kabat: {
+    label:'Kabat', note:'教科书 Kabat 定义（含 H1 至 FR2 保守 Trp 之前）',
+    H:{ '1':a=>[a.c1+9,  a.w2-1], '2':a=>[a.w2+14, a.w2+29], '3':a=>[a.c2+1, a.f4-1] },
+    L:{ '1':a=>[a.c1+1,  a.w2-1], '2':a=>[a.w2+15, a.w2+21], '3':a=>[a.c2+1, a.f4-1] }
+  },
+  chothia: {
+    label:'Chothia', note:'Chothia 结构环定义（H1 较短，轻链与 Kabat 相同）',
+    H:{ '1':a=>[a.c1+4, a.c1+10], '2':a=>[a.w2+16, a.w2+20], '3':a=>[a.c2+1, a.f4-1] },
+    L:{ '1':a=>[a.c1+1, a.w2-1],  '2':a=>[a.w2+15, a.w2+21], '3':a=>[a.c2+1, a.f4-1] }
+  },
+  imgt: {
+    label:'IMGT（锚点近似）', note:'IMGT 唯一编号锚点定义：23-Cys / 41-Trp / 104-Cys / 118-J-Trp',
+    H:{ '1':a=>[a.c1+4, a.w2-3], '2':a=>[a.w2+15, a.w2+24], '3':a=>[a.c2+1, a.f4-1] },
+    L:{ '1':a=>[a.c1+4, a.w2-3], '2':a=>[a.w2+15, a.w2+24], '3':a=>[a.c2+1, a.f4-1] }
+  }
+};
+/* 近似编号的锚点（索引 → 方案编号），用于生成抗体残基编号列 */
+const NUM_ANCHORS = {
+  H: a=>[[0,1],[a.c1,22],[a.w2,36],[a.w2+14,50],[a.w2+29,65],[a.c2,92],[a.f4,103],[a.f4+10,113]],
+  L: a=>[[0,1],[a.c1,23],[a.w2,35],[a.w2+15,50],[a.w2+21,56],[a.c2,88],[a.f4,98],[a.f4+10,108]]
+};
+
+/* ---- 5.1 锚点识别 ---- */
+function vDomainAnchors(residues){
+  const n=residues.length;
+  if(n<80) return null;
+  const seq=residues.map(r=>aa1(r.resn));
+  // 第 1 个保守 Cys
+  let c1=-1;
+  for(let i=0;i<Math.min(40,n);i++){ if(seq[i]==='C'){ c1=i; break; } }
+  if(c1<0||c1>35) return null;
+  // 第 2 个保守 Cys（与第 1 个相距 45–85）
+  let c2=-1;
+  for(let i=c1+45;i<Math.min(c1+86,n);i++){ if(seq[i]==='C'){ c2=i; break; } }
+  if(c2<0) return null;
+  // FR2 保守 Trp
+  let w2=-1;
+  for(let i=c1+9;i<=c1+23&&i+2<n;i++){
+    if(seq[i]==='W'&&FR2_TRP3.indexOf(seq[i+2])>=0){ w2=i; break; }
+  }
+  if(w2<0) return null;
+  // FR4 基序 W/F-G-x-G
+  let f4=-1, kind=null;
+  for(let i=c2+1;i<Math.min(n-3,c2+22);i++){
+    const aa=seq[i];
+    if(seq[i+1]==='G'&&seq[i+3]==='G'&&(aa==='W'||aa==='F')){ f4=i; kind=(aa==='W')?'H':'L'; break; }
+  }
+  if(f4<0) return null;
+  const span=f4-c1;
+  if(span<60||span>95) return null;                 // V 区跨度合理性
+  const vEnd=Math.min(n-1,f4+10);                   // FR4 计 11 个残基
+  return {c1,w2,c2,f4,vEnd,kind,seq};
+}
+
+/* ---- 5.2 抗体链打分与角色判定 ---- */
+function scoreAntibodyChain(residues){
+  const a=vDomainAnchors(residues);
+  if(!a) return null;
+  const seq=a.seq;
+  let score=4;                                      // 四个锚点齐全
+  const vLen=a.vEnd+1;
+  if(vLen>=95&&vLen<=135) score+=2;                 // V 区长度合理
+  if(a.kind==='H'){
+    if('VILF'.indexOf(seq[a.w2+1])>=0) score+=1;    // W-(V/I/L/F)-R 型 FR2
+    if(a.c2-a.c1>=65&&a.c2-a.c1<=78) score+=1;      // 重链二硫键跨度
+  }else{
+    if(seq[a.w2+1]==='Y') score+=1;                 // WYQ / WFQ 型 FR2
+    if(a.c2-a.c1>=58&&a.c2-a.c1<=72) score+=1;      // 轻链二硫键跨度
+  }
+  // 链末端是否延续恒定区（Fab/F(ab')2 的良好特征）
+  if(residues.length>a.vEnd+12) score+=1;
+  return {kind:a.kind,score,anchors:a};
+}
+/* 识别复合物中的 VH / VL（同一角色只保留得分最高的链），其余链视为抗原/其它 */
+function detectAntibody(cx){
+  const cands=[];
+  for(const ch of cx.chains){
+    const s=scoreAntibodyChain(ch.residues);
+    if(s&&s.score>=AB_MIN_SCORE) cands.push({chain:ch.id,kind:s.kind,score:s.score,anchors:s.anchors});
+  }
+  cands.sort((x,y)=>y.score-x.score);
+  const vh=cands.find(c=>c.kind==='H')||null;
+  const vl=cands.find(c=>c.kind==='L')||null;
+  return {vh,vl,cands};
+}
+/* 把判定结果写入链对象（供按角色着色等使用） */
+function applyAbRoles(cx,det){
+  for(const ch of cx.chains) ch.role='NA';
+  if(det.vh) cx.chains.find(c=>c.id===det.vh.chain).role='VH';
+  if(det.vl) cx.chains.find(c=>c.id===det.vl.chain).role='VL';
+  for(const ch of cx.chains) if(ch.role==='NA') ch.role='AG';
+}
+
+/* ---- 5.3 近似编号 ---- */
+function approxNumbering(kind,a,n){
+  const ids=new Array(n).fill('');
+  const anchors=NUM_ANCHORS[kind](a);
+  for(let s=0;s<anchors.length-1;s++){
+    const [i0,n0]=anchors[s], [i1,n1]=anchors[s+1];
+    const L=i1-i0, R=n1-n0;
+    if(L<=0||R<=0) continue;
+    const seen=new Map();
+    for(let i=i0+1;i<=Math.min(i1,n-1);i++){
+      let num=n0+Math.round((i-i0)*R/L);
+      if(num<=n0) num=n0+1;
+      if(num>n1) num=n1;
+      const key=String(num);
+      const c=seen.get(key)||0; seen.set(key,c+1);
+      ids[i]=c===0?key:(key+String.fromCharCode(64+c));   // 重复号 → 插入码 A/B/C…
+    }
+  }
+  // 锚点自身与 V 区以外的残基
+  ids[0]=ids[0]||'1';
+  for(let i=a.f4+10+1;i<n;i++) ids[i]='';                 // 恒定区不编号
+  ids[a.c1]=String(kind==='H'?22:23);
+  ids[a.w2]=String(kind==='H'?36:35);
+  ids[a.c2]=String(kind==='H'?92:88);
+  ids[a.f4]=String(kind==='H'?103:98);
+  return ids;
+}
+
+/* 按结构文件残基编号定位链内下标 */
+function indexOfResi(residues,resi){
+  const t=String(resi).trim();
+  for(let i=0;i<residues.length;i++) if(residues[i].resi===t) return i;
+  const num=parseInt(t,10);
+  if(isFinite(num)) for(let i=0;i<residues.length;i++) if(resiSortVal(residues[i].resi)===num) return i;
+  return -1;
+}
+/* 解析手工覆盖文本：'H1:31-35,H3:95-102'；纯 '95-102' 归入 defaultRegion */
+function parseCdrOverride(text,defaultRegion,defaultKind){
+  const out={};
+  if(!text||!text.trim()) return out;
+  const re=/([HL])\s*([1-3])\s*[:：]?\s*(-?\d+[A-Za-z]?)\s*[-–~]\s*(-?\d+[A-Za-z]?)/g;
+  let m;
+  while((m=re.exec(text))) out['CDR'+m[2]]={from:m[3],to:m[4],kind:m[1].toUpperCase()};
+  if(!Object.keys(out).length&&defaultRegion){
+    const m2=/^\s*(-?\d+[A-Za-z]?)\s*[-–~]\s*(-?\d+[A-Za-z]?)\s*$/.exec(text);
+    if(m2) out[defaultRegion]={from:m2[1],to:m2[2],kind:defaultKind||null};
+  }
+  return out;
+}
+
+/* ---- 5.4 单条抗体链的 CDR / FR 划分 ---- */
+function buildAbChain(cx, chainId, anchors, scheme, ov){
+  const ch=cx.chains.find(c=>c.id===chainId);
+  const rs=ch.residues, n=rs.length, a=anchors;
+  const sc=CDR_SCHEMES[scheme]||CDR_SCHEMES.kabat;
+  const kind=a.kind;
+  const ids=approxNumbering(kind,a,n);
+  const overrideUsed=[];
+  // 各方案 CDR 跨度
+  const spans={};
+  for(const k of ['1','2','3']){
+    let [s,e]=sc[kind][k](a);
+    s=Math.max(0,Math.min(n-1,s)); e=Math.max(s,Math.min(a.vEnd,e));
+    spans[k]=[s,e];
+  }
+  // 手工覆盖（按结构文件残基编号）
+  if(ov) for(const nm of Object.keys(ov)){
+    if(ov[nm].kind&&ov[nm].kind!==kind) continue;
+    const s=indexOfResi(rs,ov[nm].from), e=indexOfResi(rs,ov[nm].to);
+    if(s<0||e<0||e<s){ overrideUsed.push(nm+'（未匹配）'); continue; }
+    spans[nm.charAt(3)]=[s,e]; overrideUsed.push(nm);
+  }
+  // 保证 CDR1 < CDR2 < CDR3 且互不重叠
+  for(const k of ['2','3']){
+    const pk=k==='2'?'1':'2';
+    if(spans[k][0]<=spans[pk][1]) spans[k][0]=Math.min(spans[pk][1]+1,a.vEnd);
+    if(spans[k][1]<spans[k][0]) spans[k][1]=spans[k][0];
+  }
+  // 组装 FR / CDR 区段
+  const regions=[];
+  const push=(name,type,s,e)=>{
+    s=Math.max(0,Math.min(n-1,s)); e=Math.max(s,Math.min(a.vEnd,e));
+    if(e<s) return;
+    regions.push({name,label:type==='cdr'?('CDR-'+kind+name.charAt(3)):name,type,s,e,
+      keys:rs.slice(s,e+1).map(r=>r.key), resiFrom:rs[s].resi, resiTo:rs[e].resi,
+      seq:rs.slice(s,e+1).map(r=>aa1(r.resn)).join('')});
+  };
+  push('FR1','fr',0,spans['1'][0]-1);
+  push('CDR1','cdr',spans['1'][0],spans['1'][1]);
+  push('FR2','fr',spans['1'][1]+1,spans['2'][0]-1);
+  push('CDR2','cdr',spans['2'][0],spans['2'][1]);
+  push('FR3','fr',spans['2'][1]+1,spans['3'][0]-1);
+  push('CDR3','cdr',spans['3'][0],spans['3'][1]);
+  push('FR4','fr',spans['3'][1]+1,a.vEnd);
+  // 回写残基标注（着色 / 标签 / 统计依赖这些字段）
+  for(const reg of regions) for(let i=reg.s;i<=reg.e;i++){
+    const r=rs[i];
+    r.abRegion=reg.label; r.abType=reg.type; r.abNumber=ids[i]||''; r.abChain=chainId; r.abKind=kind;
+  }
+  const cdrKeys=new Set(), frKeys=new Set();
+  for(const reg of regions) for(const k of reg.keys) (reg.type==='cdr'?cdrKeys:frKeys).add(k);
+  const regionOf=new Map();
+  for(const reg of regions) for(const k of reg.keys) regionOf.set(k,{name:reg.name,label:reg.label,type:reg.type});
+  return {
+    chain:chainId, kind, role:kind==='H'?'VH':'VL', anchors:a, scheme,
+    residues:rs, numbers:ids, regions, regionOf, cdrKeys, frKeys,
+    vEnd:a.vEnd, spans,
+    seq:rs.slice(0,a.vEnd+1).map(r=>aa1(r.resn)).join(''),
+    tail:rs.slice(a.vEnd+1).map(r=>aa1(r.resn)).join(''),
+    cdrSeq:{CDR1:(regions.find(r=>r.name==='CDR1')||{}).seq||'',
+            CDR2:(regions.find(r=>r.name==='CDR2')||{}).seq||'',
+            CDR3:(regions.find(r=>r.name==='CDR3')||{}).seq||''},
+    overrideUsed
+  };
+}
+
+/* ---- 5.5 抗体模型组装 ---- */
+function analyzeAntibody(cx,opt){
+  opt=opt||{};
+  const scheme=CDR_SCHEMES[opt.scheme]?opt.scheme:'kabat';
+  const det=detectAntibody(cx);
+  applyAbRoles(cx,det);
+  // 清理上一次的抗体标注
+  for(const r of cx.residues){ delete r.abRegion; delete r.abType; delete r.abNumber; delete r.abChain; delete r.abKind; }
+  const ovAll=parseCdrOverride(opt.ovAll);
+  const ovH3=parseCdrOverride(opt.ovH3,'CDR3','H');
+  const res={scheme,schemeLabel:CDR_SCHEMES[scheme].label,schemeNote:CDR_SCHEMES[scheme].note,
+    hasAb:!!(det.vh||det.vl), vh:det.vh?det.vh.chain:null, vl:det.vl?det.vl.chain:null,
+    cands:det.cands.map(c=>({chain:c.chain,kind:c.kind,score:c.score})),
+    chains:{}, notes:[], antigen:[]};
+  for(const c of cx.chains) if(c.role==='AG') res.antigen.push(c.id);
+  const mk=(cid,anchors)=>{
+    const ov=Object.assign({},ovAll,anchors.kind==='H'?ovH3:{});
+    const ch=buildAbChain(cx,cid,anchors,scheme,ov);
+    res.chains[cid]=ch;
+    if(ch.overrideUsed.length) res.notes.push(cid+' 链 CDR 手工覆盖：'+ch.overrideUsed.join('、'));
+  };
+  if(det.vh) mk(det.vh.chain,det.vh.anchors);
+  if(det.vl) mk(det.vl.chain,det.vl.anchors);
+  if(!res.hasAb) res.notes.push('未识别到抗体 V 区（需同时满足：第 1/第 2 保守 Cys、FR2 保守 Trp、FR4 的 F/W-G-x-G 基序）。');
+  return res;
+}
+
+/* ---- 5.6 互补位 / 表位拆分（抗体侧 vs 抗原侧） ---- */
+function splitParatopeEpitope(ab,iface){
+  const abChains=new Set(Object.keys(ab.chains));
+  const paratope=new Map(), epitope=new Map(), byRegion={}, byChain={};
+  const summary={nParatope:0,nEpitope:0,nCdr:0,nFr:0,cdrFrac:0,nHeavy:0,nLight:0,
+    nEpitopeChains:0,nParatopeContacts:0,nEpitopeContacts:0,agChains:[],mode:'ab-ag'};
+  if(!iface) return {paratope,epitope,byRegion,byChain,summary};
+  if(!abChains.size){ summary.mode='none'; return {paratope,epitope,byRegion,byChain,summary}; }
+
+  /* 抗原链 = 已选链中未被判定为抗体 VH/VL 的链 */
+  const agChains=new Set();
+  for(const r of iface.resMap.values()) if(!abChains.has(r.chain)) agChains.add(r.chain);
+  if(!agChains.size) summary.mode='ab-ab';   // 仅抗体链被选中 → 退化为 H/L 界面分析
+  else summary.agChains=[...agChains].sort();
+
+  for(const [key,st] of iface.resStat){
+    const r=iface.resMap.get(key);
+    if(!r) continue;
+    const rec={key,resn:r.resn,resi:r.resi,chain:r.chain,aa:aa1(r.resn),
+      contacts:st.contacts,partners:st.partners.size,partnerKeys:st.partners,
+      minDist:st.minDist,chars:st.chars,
+      region:r.abRegion||null,type:r.abType||null,number:r.abNumber||null};
+    if(agChains.has(r.chain)){ epitope.set(key,rec); continue; }
+    if(!abChains.has(r.chain)&&summary.mode!=='ab-ab') continue;
+    // 抗体侧：只保留真正与抗原链有接触的残基（排除 H–L 链间接触造成的假互补位）
+    let touchesAg=summary.mode==='ab-ab';
+    if(!touchesAg){
+      for(const pk of st.partners){ const p=iface.resMap.get(pk); if(p&&agChains.has(p.chain)){ touchesAg=true; break; } }
+    }
+    if(touchesAg) paratope.set(key,rec);
+  }
+
+  // 按 CDR / FR 与链归并互补位贡献
+  for(const rec of paratope.values()){
+    const nm=rec.region||'（无抗体标注）';
+    const g=byRegion[nm]||(byRegion[nm]={name:nm,type:rec.type||'na',nRes:0,contacts:0,minDist:1e9,residues:[]});
+    g.nRes++; g.contacts+=rec.contacts; g.minDist=Math.min(g.minDist,rec.minDist);
+    g.residues.push(rec);
+    const h=byChain[rec.chain]||(byChain[rec.chain]={chain:rec.chain,nRes:0,contacts:0,residues:[]});
+    h.nRes++; h.contacts+=rec.contacts; h.residues.push(rec);
+  }
+  let nCdr=0, nCdrContacts=0, nParatopeContacts=0;
+  for(const rec of paratope.values()){
+    nParatopeContacts+=rec.contacts;
+    if((rec.region||'').indexOf('CDR-')===0){ nCdr++; nCdrContacts+=rec.contacts; }
+    const kind=(ab.chains[rec.chain]||{}).kind;
+    if(kind==='H') summary.nHeavy++; else if(kind==='L') summary.nLight++;
+  }
+  let nEpitopeContacts=0;
+  const epChains=new Set();
+  for(const rec of epitope.values()){ nEpitopeContacts+=rec.contacts; epChains.add(rec.chain); }
+  summary.nParatope=paratope.size; summary.nEpitope=epitope.size;
+  summary.nCdr=nCdr; summary.nFr=paratope.size-nCdr;
+  summary.cdrFrac=paratope.size?nCdr/paratope.size:0;
+  summary.nCdrContacts=nCdrContacts;
+  summary.cdrContactFrac=nParatopeContacts?nCdrContacts/nParatopeContacts:0;
+  summary.nParatopeContacts=nParatopeContacts;
+  summary.nEpitopeContacts=nEpitopeContacts;
+  summary.nEpitopeChains=epChains.size;
+  return {paratope,epitope,byRegion,byChain,summary};
+}
+
+/*__PART5_END__*/
+
+/* =====================================================================================
+   6. 综合分析聚合（界面筛选 · 热点排序 · 组成指纹 · CDR 贡献 · 接触热图）
+   ===================================================================================== */
+const pairKeyOf=(a,b)=>a<b?a+'~'+b:b+'~'+a;
+const chainOfKey=k=>{const i=k.indexOf('|');return i<0?k:k.slice(0,i);};
+/* 区域排序：FR1→CDR1→FR2→CDR2→FR3→CDR3→FR4 */
+function regionOrd(label){
+  const d=parseInt(String(label||'').replace(/[^0-9]/g,''),10);
+  if(!d) return 99;
+  return String(label).indexOf('CDR')===0?d*2:d*2-1;
+}
+
+/* ---- 6.1 界面视图筛选 ----
+   keepPair(chainA,chainB)→true 时保留该链对（null 表示全部保留）。
+   用于把「所有链间界面」收窄成「抗体–抗原界面」，或反之单独看 VH–VL 界面。 */
+function viewInterface(iface,keepPair){
+  const pairStats=new Map(), interactions=[], resStat=new Map(), resMap=new Map();
+  const ensure=key=>{
+    let s=resStat.get(key);
+    if(s) return s;
+    const r=iface.resMap.get(key);
+    if(r) resMap.set(key,r);
+    s={key,chain:r?r.chain:chainOfKey(key),contacts:0,partners:new Set(),minDist:1e9,chars:{},kinds:{}};
+    resStat.set(key,s);
+    return s;
+  };
+  for(const e of iface.pairStats.values()){
+    if(e.n<=0) continue;
+    if(keepPair&&!keepPair(chainOfKey(e.keyA),chainOfKey(e.keyB))) continue;
+    pairStats.set(pairKeyOf(e.keyA,e.keyB),e);
+    const a=ensure(e.keyA), b=ensure(e.keyB);
+    a.contacts+=e.n; b.contacts+=e.n;
+    a.partners.add(e.keyB); b.partners.add(e.keyA);
+    if(e.minD<a.minDist) a.minDist=e.minD;
+    if(e.minD<b.minDist) b.minDist=e.minD;
+    for(const k in e.cCounts){ a.chars[k]=(a.chars[k]||0)+e.cCounts[k]; b.chars[k]=(b.chars[k]||0)+e.cCounts[k]; }
+  }
+  for(const it of iface.interactions){
+    if(keepPair&&!keepPair(it.chainA,it.chainB)) continue;
+    interactions.push(it);
+    const a=ensure(it.keyA), b=ensure(it.keyB);
+    a.kinds[it.kind]=(a.kinds[it.kind]||0)+1;
+    b.kinds[it.kind]=(b.kinds[it.kind]||0)+1;
+  }
+  const kindCount={};
+  for(const it of interactions) kindCount[it.kind]=(kindCount[it.kind]||0)+1;
+  const chains=[...new Set([...resStat.values()].map(s=>s.chain))].sort();
+  return {pairStats,interactions,resStat,resMap,kindCount,chains,nRes:resStat.size,
+    cutoff:iface.cutoff,enumR:iface.enumR,hbondMode:iface.hbondMode};
+}
+
+/* ---- 6.1b 界面定义模式：ΔASA 过滤 ----
+   默认「距离截断」把任一重原子接触的残基都算作界面残基；
+   切换为「ΔASA」后，只保留在结合中真正被埋藏的残基（逐残基 ΔASA ≥ minD，单位 Å²）。
+   接触枚举本身保持不变，因此相互作用判据与显示不受影响。 */
+function pruneViewByDasa(view,dasa,minD){
+  if(!dasa) return view;
+  const keep=new Set();
+  for(const k of view.resStat.keys()) if((dasa.get(k)||0)>=minD) keep.add(k);
+  const resStat=new Map(), resMap=new Map();
+  for(const k of keep){
+    const s=view.resStat.get(k);
+    for(const p of [...s.partners]) if(!keep.has(p)) s.partners.delete(p);
+    resStat.set(k,s);
+    const r=view.resMap.get(k); if(r) resMap.set(k,r);
+  }
+  const interactions=view.interactions.filter(it=>keep.has(it.keyA)&&keep.has(it.keyB));
+  const kindCount={};
+  for(const it of interactions) kindCount[it.kind]=(kindCount[it.kind]||0)+1;
+  return {pairStats:view.pairStats,interactions,resStat,resMap,kindCount,
+    chains:[...new Set([...resStat.values()].map(s=>s.chain))].sort(),
+    nRes:resStat.size,cutoff:view.cutoff,enumR:view.enumR,hbondMode:view.hbondMode};
+}
+
+/* ---- 6.2 热点残基打分 ----
+   四个分量各自归一到 0–1（除以该分量的全界面最大值）后按权重线性合成 → 0–100 分。
+   权重来自左侧「热点候选排序权重」滑块；相互作用分量内部再按类型加权。
+   这是透明的启发式指标，用于排序与筛选，不是 ΔΔG 预测值。 */
+const HOTSPOT_DEFAULT_W={contact:0.35, dasa:0.35, hbond:0.20, cdr:0.10};
+const HOTSPOT_W={hbond:3, saltbridge:4, pication:2.5, pipi:2, disulfide:1, waterbridge:1, hydrophobic:1};
+function scoreHotspots(view,dasa,opt){
+  opt=opt||{};
+  const w=Object.assign({},HOTSPOT_DEFAULT_W,opt.w||{});
+  const wsum=(w.contact+w.dasa+w.hbond+w.cdr)||1;
+  const rows=[];
+  for(const [key,s] of view.resStat){
+    const r=view.resMap.get(key); if(!r) continue;
+    const b=(dasa&&dasa.get(key))||0;
+    let ib=0;
+    for(const k in s.kinds) ib+=(HOTSPOT_W[k]||1)*s.kinds[k];
+    rows.push({key,chain:r.chain,resn:r.resn,resi:r.resi,aa:aa1(r.resn),
+      contacts:s.contacts,dasa:b,ib,cdr:r.abType==='cdr'?1:0,
+      partners:s.partners.size,minDist:s.minDist<1e8?s.minDist:null,
+      kinds:s.kinds,chars:s.chars,region:r.abRegion||null,abType:r.abType||null,
+      number:r.abNumber||null,side:r.abChain?'paratope':'epitope'});
+  }
+  const mx=f=>rows.reduce((m,r)=>Math.max(m,f(r)),0)||1;
+  const mc=mx(r=>r.contacts), md=mx(r=>r.dasa), mi=mx(r=>r.ib);
+  for(const r of rows){
+    r.parts={contact:r.contacts/mc, dasa:r.dasa/md, hbond:r.ib/mi, cdr:r.cdr};
+    r.score=Math.round(1000*(w.contact*r.parts.contact+w.dasa*r.parts.dasa+
+      w.hbond*r.parts.hbond+w.cdr*r.parts.cdr)/wsum)/10;
+  }
+  rows.sort((a,b)=>b.score-a.score||b.contacts-a.contacts||a.key.localeCompare(b.key));
+  const nCore=Math.max(1,Math.round(rows.length*(opt.coreFrac||0.1)));
+  rows.forEach((r,i)=>{
+    r.rank=i+1;
+    r.level=(i<nCore&&r.score>=40)?'核心热点':(r.score>=25?'重要':'一般');
+  });
+  return {rows,max:100,byKey:new Map(rows.map(r=>[r.key,r])),weights:w,parts:{mc,md,mi}};
+}
+
+/* ---- 6.3 界面组成指纹：观测频率 vs 平均蛋白背景频率（AA_BACKGROUND，%） ---- */
+function compositionFingerprint(records){
+  const list=[...records], n=list.length, obs={};
+  for(const r of list) obs[r.aa]=(obs[r.aa]||0)+1;
+  const rows=AA_LIST.map(a=>{
+    const c=obs[a]||0, f=n?c/n:0, e=(AA_BACKGROUND[a]||1)/100, exp=n*e;
+    return {aa:a,n:c,frac:f,expFrac:e,expCount:exp,
+      enrich:e>0?f/e:0, chi:exp>0?(c-exp)*(c-exp)/exp:0};
+  });
+  rows.sort((a,b)=>b.enrich-a.enrich||b.n-a.n);
+  let chi2=0; for(const r of rows) chi2+=r.chi;
+  return {n,rows,chi2,obs};
+}
+
+/* ---- 6.4 CDR / FR 贡献表（含未参与接触的区段对比） ---- */
+function cdrContribution(ab,view,dasa,hotspots){
+  const rows=[];
+  for(const cid of Object.keys(ab.chains)){
+    const c=ab.chains[cid];
+    for(const reg of c.regions){
+      const rec={chain:cid,kind:c.kind,region:reg.label,name:reg.name,type:reg.type,
+        resiFrom:reg.resiFrom,resiTo:reg.resiTo,seq:reg.seq,nRes:reg.keys.length,
+        nContact:0,contacts:0,dasa:0,kinds:{},hits:[],topScore:0};
+      for(const k of reg.keys){
+        const s=view.resStat.get(k); if(!s) continue;
+        const b=(dasa&&dasa.get(k))||0;
+        rec.nContact++; rec.contacts+=s.contacts; rec.dasa+=b;
+        for(const kk in s.kinds) rec.kinds[kk]=(rec.kinds[kk]||0)+s.kinds[kk];
+        const h=hotspots&&hotspots.byKey.get(k);
+        if(h){
+          rec.hits.push({key:k,aa:h.aa,resi:h.resi,score:h.score,level:h.level,
+            contacts:h.contacts,dasa:h.dasa});
+          if(h.score>rec.topScore) rec.topScore=h.score;
+        }
+      }
+      rec.hits.sort((a,b)=>b.score-a.score);
+      rows.push(rec);
+    }
+  }
+  const ord=r=>(r.type==='cdr'?0:100)+(r.kind==='H'?0:10)+regionOrd(r.name);
+  rows.sort((a,b)=>ord(a)-ord(b)||a.resiFrom.localeCompare(b.resiFrom));
+  return rows;
+}
+
+/* ---- 6.5 接触矩阵（热图）：行 × 列 -> 接触原子对计数 ---- */
+function contactMatrix(pairStats,rowKeys,colKeys,valFn){
+  const ri=new Map(rowKeys.map((k,i)=>[k,i])), ci=new Map(colKeys.map((k,i)=>[k,i]));
+  const m=rowKeys.map(()=>new Array(colKeys.length).fill(0));
+  let max=0;
+  for(const e of pairStats.values()){
+    let r=ri.get(e.keyA), c=ci.get(e.keyB);
+    if(r===undefined||c===undefined){
+      const r2=ri.get(e.keyB), c2=ci.get(e.keyA);
+      if(r2===undefined||c2===undefined) continue;
+      r=r2; c=c2;
+    }
+    const v=valFn?valFn(e):e.n;
+    if(!v) continue;
+    m[r][c]+=v;
+    if(m[r][c]>max) max=m[r][c];
+  }
+  return {rowKeys,colKeys,matrix:m,max};
+}
+function buildHeatmap(view,split){
+  const epitope=[...split.epitope.values()].sort((a,b)=>b.contacts-a.contacts||
+    a.chain.localeCompare(b.chain)||(resiSortVal(a.resi)-resiSortVal(b.resi)));
+  const paratope=[...split.paratope.values()].sort((a,b)=>
+    a.chain.localeCompare(b.chain)||regionOrd(a.region)-regionOrd(b.region)||
+    (resiSortVal(a.resi)-resiSortVal(b.resi)));
+  const labelOf=r=>((r.aa||'X')+r.resi+(r.number?'(#'+r.number+')':''));
+  return {epitope,paratope,labelOf,
+    m:contactMatrix(view.pairStats,epitope.map(r=>r.key),paratope.map(r=>r.key))};
+}
+
+/* ---- 6.6 界面残基汇总表（互补位 / 表位 + 埋藏面积 + 相互作用 + 热点分） ---- */
+function buildResidueTable(view,split,dasa,hotspots){
+  const rows=[];
+  for(const [key,s] of view.resStat){
+    const r=view.resMap.get(key); if(!r) continue;
+    const h=hotspots&&hotspots.byKey.get(key);
+    rows.push({key,chain:r.chain,resn:r.resn,resi:r.resi,aa:aa1(r.resn),
+      side:split.epitope.has(key)?'epitope':(split.paratope.has(key)?'paratope':'other'),
+      region:r.abRegion||null,abType:r.abType||null,number:r.abNumber||null,
+      contacts:s.contacts,partners:s.partners.size,
+      minDist:s.minDist<1e8?s.minDist:null,
+      dasa:(dasa&&dasa.get(key))||0,
+      kinds:s.kinds,chars:s.chars,
+      score:h?h.score:0,level:h?h.level:'',rank:h?h.rank:0,
+      topPartner:topPartnerOf(view,s)});
+  }
+  rows.sort((a,b)=>b.score-a.score||b.contacts-a.contacts||a.key.localeCompare(b.key));
+  return rows;
+}
+/* 该残基接触最紧密的伙伴（按原子接触数） */
+function topPartnerOf(view,s){
+  let best=null,bn=0;
+  for(const pk of s.partners){
+    const e=view.pairStats.get(pairKeyOf(s.key,pk));
+    const n=e?e.n:0;
+    if(n>bn){ bn=n; best=pk; }
+  }
+  if(!best) return null;
+  const r=view.resMap.get(best);
+  return r?{key:best,label:resLabel(r),contacts:bn}:null;
+}
+
+/* ---- 6.7 抗体专属附加统计：CDR 长度 vs 参与接触的残基比例 ---- */
+function cdrSummaryRows(ab,view){
+  const out=[];
+  for(const cid of Object.keys(ab.chains)){
+    const c=ab.chains[cid];
+    for(const reg of c.regions){
+      if(reg.type!=='cdr') continue;
+      let n=0,contacts=0;
+      for(const k of reg.keys){
+        const s=view.resStat.get(k);
+        if(s){ n++; contacts+=s.contacts; }
+      }
+      out.push({chain:cid,region:reg.label,len:reg.keys.length,nContact:n,
+        contacts,frac:reg.keys.length?n/reg.keys.length:0});
+    }
+  }
+  return out;
+}
+
+/* ---- 6.8 顶层聚合：一次算完抗体识别 / 界面 / 埋藏面积 / 热点 / 指纹 / 热图 ----
+   cfg = { iface:{cutoff,hbondMode,includeHet,addH}, scheme, ovH3, ovAll,
+           focus:'abag'|'all'|'hl', nPts, probe, hotspot:{coreFrac} }  */
+function analyzeAll(cx,cfg){
+  cfg=cfg||{};
+  const ic=cfg.iface||{};
+  const t0=performance.now();
+  const iface=computeInterface(cx,{cutoff:ic.cutoff||4.5,hbondMode:ic.hbondMode||'geom',
+    includeHet:!!ic.includeHet,addH:ic.addH!==false});
+  const t1=performance.now();
+
+  const ab=analyzeAntibody(cx,{scheme:cfg.scheme,ovH3:cfg.ovH3,ovAll:cfg.ovAll});
+  const abChains=Object.keys(ab.chains).sort();
+  const agChains=cx.chains.filter(c=>cx.selected.has(c.id)&&abChains.indexOf(c.id)<0).map(c=>c.id).sort();
+
+  /* 默认聚焦「抗体–抗原界面」；无抗体或只看抗体链时退回全部界面 */
+  let focus=cfg.focus||'all';
+  if(focus==='abag'&&(!abChains.length||!agChains.length)) focus='all';
+  if(focus==='hl'&&abChains.length<2) focus='all';
+  const keepPair=
+    focus==='abag' ? (a,b)=>(abChains.indexOf(a)>=0&&agChains.indexOf(b)>=0)||
+                            (abChains.indexOf(b)>=0&&agChains.indexOf(a)>=0)
+  : focus==='hl'   ? (a,b)=>abChains.indexOf(a)>=0&&abChains.indexOf(b)>=0
+  : null;
+  let view=viewInterface(iface,keepPair);
+  const t2=performance.now();
+
+  /* 埋藏面积：抗体组 vs 抗原组（无抗体时退化为逐链分组） */
+  const groups=[];
+  if(abChains.length&&agChains.length){
+    groups.push({id:'ab',name:'抗体 VH/VL',chains:abChains,role:'VH'});
+    groups.push({id:'ag',name:'抗原',chains:agChains,role:'AG'});
+  }else{
+    const ids=[...cx.selected].sort();
+    ids.forEach((id,i)=>groups.push({id:'g'+i,name:'链 '+id,chains:[id],role:'NA'}));
+  }
+  const bsa=computeBSA(cx,groups,cfg.nPts||92,cfg.probe||1.4,!!ic.includeHet);
+  const t3=performance.now();
+
+  const abPair=bsa.pairs.find(p=>p.a==='ab'&&p.b==='ag')||bsa.pairs[0]||null;
+  const dasa=abPair?abPair.dASA:null;
+  /* 界面定义模式：默认距离截断；选 ΔASA 时按逐残基埋藏面积进一步收窄 */
+  if(ic.mode==='dasa'&&dasa) view=pruneViewByDasa(view,dasa,ic.dasaMin||0.5);
+  const split=splitParatopeEpitope(ab,view);
+  const hotspots=scoreHotspots(view,dasa,cfg.hotspot);
+  const fingerprint={
+    epitope:compositionFingerprint(split.epitope.values()),
+    paratope:compositionFingerprint(split.paratope.values())
+  };
+  const cdrRows=cdrContribution(ab,view,dasa,hotspots);
+  const residues=buildResidueTable(view,split,dasa,hotspots);
+  const heatmap=buildHeatmap(view,split);
+  const cdrSummary=cdrSummaryRows(ab,view);
+  const t4=performance.now();
+
+  const groupSasa=id=>{const g=bsa.groups.find(x=>x.id===id);return g?g.sasa:0;};
+  const summary={
+    name:cx.name, focus,
+    chains:cx.chains.map(c=>c.id).filter(id=>cx.selected.has(id)),
+    hasAb:ab.hasAb, vh:ab.vh, vl:ab.vl, scheme:ab.schemeLabel, agChains,
+    nIfaceRes:view.nRes, nParatope:split.summary.nParatope, nEpitope:split.summary.nEpitope,
+    nInteractions:view.interactions.length, kindCount:view.kindCount,
+    bsa:abPair?abPair.bsa:0, dASA:abPair?(abPair.sasaA+abPair.sasaB-abPair.sasaAB):0,
+    sasaAb:groupSasa('ab'), sasaAg:groupSasa('ag'), complexSasa:bsa.complexSasa,
+    cdrFrac:split.summary.cdrFrac, cdrContactFrac:split.summary.cdrContactFrac,
+    hotCount:hotspots.rows.filter(r=>r.level==='核心热点').length,
+    topHotspots:hotspots.rows.slice(0,8).map(r=>({label:r.aa+r.resi+':'+r.chain,score:r.score,
+      level:r.level,region:r.region,dasa:r.dasa,contacts:r.contacts})),
+    time:{iface:Math.round(t1-t0),ab:Math.round(t2-t1),area:Math.round(t3-t2),
+      post:Math.round(t4-t3),total:Math.round(t4-t0)}
+  };
+  /* 供 3D 渲染使用：抗体区域→残基键集合 */
+  const regionKeys={};
+  for(const cid of Object.keys(ab.chains))
+    for(const reg of ab.chains[cid].regions)
+      regionKeys[cid+'|'+reg.label]=reg.keys;
+  return {cx,cfg,focus,iface,view,ab,split,bsa,abPair,dasa,hotspots,fingerprint,
+    cdrRows,cdrSummary,residues,heatmap,regionKeys,summary,
+    abChains,agChains};
+}
+
+/*__PART6_END__*/
+
+/* =====================================================================================
+   7. 3D 渲染（基于 3Dmol.js）
+   ===================================================================================== */
+/* ---- 7.0 应用状态与视角状态 ---- */
+const APP={ structures:[], cur:null, ana:null, viewer:null };
+const VIEW={
+  bg:'#ffffff', repr:'cartoon', colorMode:'chain',
+  chainColor:{},                                   /* chainId -> 自定义颜色 */
+  activeChain:null,                                /* 调色板作用对象 */
+  surfaceMode:'off', surfop:0.72, op:0.95,
+  ifaceStick:true, ifaceHi:false,
+  label:false, labelMode:'interacting', lsize:11, autolabel:true,
+  depth:false, frontv:0.35, backv:0.35,
+  inter:{hbond:true,saltbridge:true,pipi:true,pication:true,disulfide:true,hydrophobic:true,waterbridge:true}
+};
+const CDR_COLORS={CDR1:'#f0564a',CDR2:'#eda52f',CDR3:'#9d6be0'};
+const ROLE_COLORS={VH:'#3b6fd4',VL:'#0f9aa8',AG:'#d9822b',NA:'#8494ab'};
+const IFACE_COLORS={paratope:'#d34f7d',epitope:'#e08a2b',other:'#9fb0c8',none:'#c6cfdc'};
+const KIND_COUNT_ID={hbond:'cHB',saltbridge:'cSB',pipi:'cPP',pication:'cPC',
+  disulfide:'cSS',hydrophobic:'cHY',waterbridge:'cWB'};
+let LABELS=[];
+let _surfBusy=false,_surfDirty=false;
+let _lblRAF=0,_lblPending=[];
+
+/* ---- 7.1 通用工具 ---- */
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+let _toastTimer=0;
+function toast(msg,kind){
+  const el=document.getElementById('toast'); if(!el) return;
+  el.textContent=msg;
+  el.style.background=kind==='warn'?'#8a5a12':(kind==='err'?'#8f2934':
+    (kind==='ok'?'#1f6b45':(kind==='info'?'#2b4a7d':'#1c2a44')));
+  el.classList.add('on');
+  clearTimeout(_toastTimer);
+  _toastTimer=setTimeout(()=>el.classList.remove('on'),2600);
+}
+/* 3Dmol 原子 → 与内部一致的残基键 */
+function normChain3(c){ return (c===undefined||c===null||c==='')?'_':String(c).trim(); }
+function key3(a){ return normChain3(a.chain)+'|'+String(a.resn||'').toUpperCase()+'|'+String(a.resi); }
+function selKeys(keys){ const s=keys instanceof Set?keys:new Set(keys);
+  return {predicate:a=>s.has(key3(a))}; }
+function isDark(hex){
+  const h=String(hex||'').replace('#','');
+  if(h.length<6) return false;
+  const r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16);
+  return (0.299*r+0.587*g+0.114*b)<128;
+}
+function resIndex(cx){ if(!cx._byKey) cx._byKey=new Map(cx.residues.map(r=>[r.key,r])); return cx._byKey; }
+function caOf(r){ return r.atoms.find(a=>a.name==='CA')||r.atoms[0]; }
+function aaResLabel(r){ return aa1(r.resn)+r.resi+':'+r.chain; }
+function chainColor(cx,id){ return VIEW.chainColor[id]||((cx.chains.find(c=>c.id===id)||{}).color)||'#8a97a8'; }
+function roleColor(cx,id){ const c=cx.chains.find(x=>x.id===id); return ROLE_COLORS[(c&&c.role)||'NA']||ROLE_COLORS.NA; }
+function anyRole(cx){ return cx.chains.some(c=>cx.selected.has(c.id)&&c.role&&c.role!=='NA'); }
+function cdrColorOf(r){
+  const m=/CDR-([HL])([123])/.exec(r.abRegion||'');
+  return m?CDR_COLORS['CDR'+m[2]]:'#c3ccda';
+}
+function labelTextOf(r){
+  const base=aa1(r.resn)+r.resi;
+  if(r.abRegion) return r.abRegion+' '+base;
+  return base+':'+r.chain;
+}
+function has3Dmol(){ return typeof $3Dmol!=='undefined'&&$3Dmol&&$3Dmol.createViewer; }
+
+/* ---- 7.2 视图实例与模型装载 ---- */
+function ensureViewer(){
+  if(APP.viewer) return APP.viewer;
+  if(!has3Dmol()) throw new Error('3Dmol.js 未加载');
+  const el=document.getElementById('viewer');
+  const v=$3Dmol.createViewer(el,{backgroundColor:VIEW.bg,antialias:true});
+  APP.viewer=v;
+  bindLabelDrag(v);
+  return v;
+}
+function loadModel(v,cx){
+  if(v.__cxid===cx.id) return;
+  v.removeAllSurfaces(); v.removeAllShapes(); v.removeAllLabels(); v.removeAllModels();
+  v.__cxid=cx.id;
+  v.__slabFull=null;
+  v.addModel(cx.text,/cif/i.test(cx.fmt||'')?'cif':'pdb');
+}
+function clearViewer(){
+  const v=APP.viewer; if(!v) return;
+  v.removeAllSurfaces(); v.removeAllShapes(); v.removeAllLabels(); v.removeAllModels();
+  v.__cxid=null; v.__slabFull=null;
+  LABELS=[]; APP.selRes=null;
+  v.render();
+  setEmptyHint(true);
+  updateOverlays(null);
+}
+function setEmptyHint(show){
+  const el=document.getElementById('emptyHint');
+  if(el) el.style.display=show?'':'none';
+}
+
+/* ---- 7.3 表示法与着色 ---- */
+function repStyle(color){
+  const op=VIEW.op;
+  if(VIEW.repr==='trace')       return {cartoon:{style:'trace',thickness:0.45,color,opacity:op}};
+  if(VIEW.repr==='ribbon_thin') return {cartoon:{ribbon:true,thickness:0.22,color,opacity:op}};
+  return {cartoon:{style:'default',color,opacity:op}};
+}
+function applyStyles(v,cx){
+  /* 清空全部样式：未重新着色的原子不会被绘制 */
+  v.setStyle({});
+  const vis=[];
+  for(const r of cx.residues) if(resVisible(cx,r)) vis.push(r);
+  if(!vis.length) return;
+  /* 基础表示（默认中性色，随后逐组覆盖颜色） */
+  v.setStyle(selKeys(vis.map(r=>r.key)), repStyle('#b9c4d4'));
+  /* 按当前着色模式分组 */
+  const groups=new Map();
+  const put=(c,k)=>{ let a=groups.get(c); if(!a){ a=[]; groups.set(c,a); } a.push(k); };
+  const mode=VIEW.colorMode;
+  const useRole=anyRole(cx);
+  const vs=APP.ana?APP.ana.view:null, sp=APP.ana?APP.ana.split:null;
+  for(const r of vis){
+    if(mode==='role'){
+      put(useRole?roleColor(cx,r.chain):chainColor(cx,r.chain),r.key);
+    }else if(mode==='cdr'){
+      put(r.abKind?cdrColorOf(r):chainColor(cx,r.chain),r.key);
+    }else if(mode==='iface'&&vs&&sp){
+      if(vs.resStat.has(r.key)){
+        put(sp.paratope.has(r.key)?IFACE_COLORS.paratope:
+           (sp.epitope.has(r.key)?IFACE_COLORS.epitope:IFACE_COLORS.other),r.key);
+      }else put(IFACE_COLORS.none,r.key);
+    }else{
+      put(chainColor(cx,r.chain),r.key);
+    }
+  }
+  for(const [c,keys] of groups) v.setStyle(selKeys(keys),{cartoon:{color:c}},true);
+  /* 非标准残基（糖基 / 配体 / 修饰残基）以棒状叠加显示 */
+  v.setStyle({predicate:a=>{
+    const rn=String(a.resn||'').toUpperCase();
+    if(String(a.elem||'').toUpperCase()==='H') return false;
+    if(WATERS.has(rn)) return false;
+    return !!a.hetflag&&cx.selected.has(normChain3(a.chain));
+  }},{stick:{radius:0.14,colorscheme:'Jmol'}},true);
+}
+function applyIfaceStick(v,cx){
+  if(!VIEW.ifaceStick||!APP.ana) return;
+  const keys=[];
+  for(const k of APP.ana.view.resStat.keys()){
+    const r=APP.ana.view.resMap.get(k);
+    if(r&&cx.selected.has(r.chain)&&!cx.hidden.has(k)) keys.push(k);
+  }
+  if(!keys.length) return;
+  v.setStyle(selKeys(keys),{stick:{radius:0.13,colorscheme:'Jmol'}},true);
+}
+
+/* ---- 7.4 相互作用虚线 / 水桥 ---- */
+function applyShapes(v,cx){
+  v.removeAllShapes();
+  if(!APP.ana) return;
+  const vis=new Set(cx.selected);
+  for(const it of APP.ana.view.interactions){
+    if(!VIEW.inter[it.kind]) continue;
+    if(!vis.has(it.chainA)||!vis.has(it.chainB)) continue;
+    const k=KIND[it.kind];
+    v.addCylinder({start:it.pa,end:it.pb,radius:k.solid?0.14:0.085,color:k.color,
+      dashed:!k.solid,dashLength:0.2,gapLength:0.16,fromCap:true,toCap:true});
+    if(it.kind==='waterbridge'&&it.water){
+      v.addCylinder({start:it.water,end:it.pa,radius:0.055,color:k.color,
+        dashed:true,dashLength:0.15,gapLength:0.13});
+      v.addCylinder({start:it.water,end:it.pb,radius:0.055,color:k.color,
+        dashed:true,dashLength:0.15,gapLength:0.13});
+      v.addSphere({center:it.water,radius:0.26,color:k.color,opacity:0.6});
+    }
+  }
+}
+
+/* ---- 7.5 标签 ---- */
+function labelAnchorKeys(cx){
+  const s=new Set();
+  if(VIEW.labelMode==='iface'&&APP.ana){
+    for(const k of APP.ana.view.resStat.keys()) s.add(k);
+  }else if(VIEW.labelMode==='cdr'){
+    for(const r of cx.residues) if(r.abType==='cdr'&&resVisible(cx,r)) s.add(r.key);
+  }else if(APP.ana){
+    for(const it of APP.ana.view.interactions){ s.add(it.keyA); s.add(it.keyB); }
+  }
+  return [...s];
+}
+function applyLabels(v,cx){
+  v.removeAllLabels();
+  LABELS=[];
+  if(!VIEW.label||!APP.ana) return;
+  const by=resIndex(cx);
+  const dark=isDark(VIEW.bg);
+  const chipBg=VIEW.autolabel?(dark?'#ffffff':'#101c30'):'#ffffff';
+  const chipFg=VIEW.autolabel?(dark?'#101c30':'#ffffff'):'#101c30';
+  for(const key of labelAnchorKeys(cx)){
+    const r=by.get(key); if(!r) continue;
+    if(!cx.selected.has(r.chain)||cx.hidden.has(key)) continue;
+    const a=caOf(r);
+    const lbl=v.addLabel(labelTextOf(r),{
+      position:{x:a.x,y:a.y,z:a.z},
+      fontSize:VIEW.lsize,fontColor:chipFg,backgroundColor:chipBg,
+      backgroundOpacity:0.82,borderThickness:0,showBackground:true,inFront:true,
+      screenOffset:cx.labelOffset[key]||null
+    });
+    LABELS.push({key,label:lbl,anchor:{x:a.x,y:a.y,z:a.z}});
+  }
+}
+function scheduleLabelRefresh(v,label){
+  _lblPending.push(label);
+  if(_lblRAF) return;
+  _lblRAF=requestAnimationFrame(()=>{
+    _lblRAF=0;
+    const seen=new Set();
+    for(const l of _lblPending){ if(seen.has(l)) continue; seen.add(l); l.setContext(); }
+    _lblPending=[];
+    v.render();
+  });
+}
+function bindLabelDrag(v){
+  if(v.__labelDrag) return;
+  v.__labelDrag=true;
+  const host=document.getElementById('viewer');
+  const canvas=v.getCanvas();
+  let drag=null;
+  /* 捕获阶段拦截 Alt+左键，避免同时触发旋转 */
+  host.addEventListener('mousedown',ev=>{
+    if(!ev.altKey||!LABELS.length) return;
+    let best=null,bd=1e9;
+    for(const L of LABELS){
+      const d=v.screenToModelDistance({x:ev.clientX,y:ev.clientY},L.anchor);
+      if(d<bd){ bd=d; best=L; }
+    }
+    if(!best||bd>5) return;
+    const off=best.label.stylespec.screenOffset||{x:0,y:0};
+    drag={L:best,px:ev.clientX,py:ev.clientY,ox:off.x,oy:off.y};
+    ev.stopPropagation(); ev.preventDefault();
+    canvas.style.cursor='grabbing';
+  },true);
+  __addWin('mousemove',ev=>{
+    if(!drag) return;
+    const nx=drag.ox+(ev.clientX-drag.px), ny=drag.oy-(ev.clientY-drag.py);
+    drag.L.label.stylespec.screenOffset={x:nx,y:ny};
+    if(APP.cur) APP.cur.labelOffset[drag.L.key]={x:nx,y:ny};
+    scheduleLabelRefresh(v,drag.L.label);
+    ev.preventDefault();
+  });
+  __addWin('mouseup',()=>{ if(drag){ drag=null; canvas.style.cursor=''; } });
+}
+
+/* ---- 7.6 表面 ---- */
+function applySurface(v,cx){
+  v.removeAllSurfaces();
+  const tasks=[];
+  const mode=VIEW.surfaceMode;
+  const chains=[...cx.selected];
+  const chainPred=a=>chains.indexOf(normChain3(a.chain))>=0;
+  if(mode==='ses'||mode==='vdw'){
+    tasks.push({stype:mode==='ses'?'SES':'VDW',
+      style:{opacity:VIEW.surfop,color:'#cdd7e6'},sel:{predicate:chainPred}});
+  }else if((mode==='iface'||mode==='epitope')&&APP.ana){
+    const keys=mode==='iface'?[...APP.ana.view.resStat.keys()]
+      :[...new Set([...APP.ana.split.paratope.keys(),...APP.ana.split.epitope.keys()])];
+    if(keys.length) tasks.push({stype:'SES',
+      style:{opacity:Math.max(0.4,VIEW.surfop),color:'#e8a894'},sel:selKeys(keys)});
+  }
+  if(VIEW.ifaceHi&&APP.ana&&mode!=='iface'&&mode!=='epitope'){
+    const keys=[...APP.ana.view.resStat.keys()];
+    if(keys.length) tasks.push({stype:'SES',style:{opacity:0.42,color:'#f0a860'},sel:selKeys(keys)});
+  }
+  if(!tasks.length){ v.render(); return; }
+  if(_surfBusy){ _surfDirty=true; return; }
+  _surfBusy=true;
+  Promise.all(tasks.map(t=>{
+    const p=v.addSurface(t.stype,t.style,t.sel);
+    return (p&&p.then)?p:Promise.resolve();
+  })).then(()=>{
+    _surfBusy=false; v.render();
+    if(_surfDirty){ _surfDirty=false; applySurface(v,cx); }
+  }).catch(()=>{ _surfBusy=false; });
+}
+
+/* ---- 7.7 深度裁剪 ---- */
+function captureSlab(v){ const s=v.getSlab(); v.__slabFull={near:s.near,far:s.far}; }
+function applySlab(v){
+  const f=v.__slabFull; if(!f) return;
+  if(!VIEW.depth){ v.setSlab(f.near,f.far); return; }
+  const R=(f.far-f.near)||1;
+  const near=f.near+VIEW.frontv*R*0.5;
+  let far=f.far-VIEW.backv*R*0.5;
+  if(far<near+1) far=near+1;
+  v.setSlab(near,far);
+}
+
+/* ---- 7.8 拾取与选中标记 ---- */
+function drawSelMarker(v,cx){
+  const k=APP.selRes; if(!k) return;
+  const r=resIndex(cx).get(k); if(!r||!resVisible(cx,r)) return;
+  const a=caOf(r);
+  v.addSphere({center:{x:a.x,y:a.y,z:a.z},radius:1.15,color:'#3b6fd4',opacity:0.3});
+}
+function showPickInfo(k){
+  const el=document.getElementById('pickInfo'); if(!el) return;
+  const cx=APP.cur; if(!cx) return;
+  const r=resIndex(cx).get(k); if(!r){ el.style.display='none'; return; }
+  const st=APP.ana?APP.ana.view.resStat.get(k):null;
+  const hot=APP.ana?APP.ana.hotspots.byKey.get(k):null;
+  const lines=[`<b>${esc(aaResLabel(r))}</b> <span class="pill ${esc(r.abType==='cdr'?'cdr':'fr')}">${esc(r.abRegion||'—')}</span>`];
+  if(r.abNumber) lines.push('抗体编号 '+esc(String(r.abNumber)));
+  if(st){
+    lines.push('接触原子 '+st.contacts+' · 伙伴 '+st.partners.size+
+      (st.minDist<1e8?' · 最近 '+st.minDist.toFixed(2)+' Å':''));
+    const kinds=Object.keys(st.kinds||{}).map(x=>KIND[x]?KIND[x].name:x);
+    if(kinds.length) lines.push('作用类型 '+kinds.join('、'));
+  }
+  if(hot) lines.push('热点分 <b>'+hot.score.toFixed(1)+'</b>（'+esc(hot.level)+'）');
+  el.innerHTML=lines.join('<br>');
+  el.style.display='';
+}
+function hidePickInfo(){
+  const el=document.getElementById('pickInfo');
+  if(el) el.style.display='none';
+}
+function bindPicking(v,cx){
+  v.setClickable({},true,atom=>{
+    const k=key3(atom);
+    APP.selRes=k;
+    const sel=document.getElementById('residueSelect');
+    if(sel&&sel.querySelector('option[value="'+k.replace(/"/g,'')+'"]')) sel.value=k;
+    drawSelMarker(v,cx);
+    v.render();
+    showPickInfo(k);
+  });
+  v.setHoverable({},true,atom=>showPickInfo(key3(atom)),hidePickInfo);
+}
+
+/* ---- 7.9 叠加层：统计盒 / 图例 / 顶栏 / 计数 ---- */
+function updateOverlays(cx){
+  const ana=APP.ana;
+  const st=document.getElementById('stageTitle');
+  if(st) st.textContent=cx?cx.name:'未载入结构';
+  const sm=document.getElementById('stageMetrics');
+  if(sm){
+    if(!cx) sm.textContent='';
+    else{
+      const p=['链 '+cx.chains.map(c=>c.id).filter(id=>cx.selected.has(id)).join(', ')];
+      p.push(cx.residues.filter(r=>resVisible(cx,r)).length+' 残基');
+      if(ana){ p.push('界面 '+ana.view.nRes+' 残基'); p.push('相互作用 '+ana.view.interactions.length); }
+      sm.textContent=p.join(' · ');
+    }
+  }
+  const sb=document.getElementById('statsBox');
+  if(sb){
+    if(!cx||!ana) sb.innerHTML='';
+    else{
+      const s=ana.summary, pat=Object.keys(s.kindCount||{}).length;
+      sb.innerHTML=
+        `<div><b>${esc(s.name)}</b></div>`+
+        `<div>界面残基 <b>${s.nIfaceRes}</b> · 互补位 <b>${s.nParatope}</b> · 表位 <b>${s.nEpitope}</b></div>`+
+        `<div>相互作用 <b>${s.nInteractions}</b> 组（${pat} 类）</div>`+
+        `<div>BSA <b>${(s.bsa||0).toFixed(0)}</b> Å² · 复合物 SASA <b>${(s.complexSasa||0).toFixed(0)}</b> Å²</div>`+
+        (s.hasAb?`<div>抗体重链 <b>${esc(s.vh||'—')}</b> · 轻链 <b>${esc(s.vl||'—')}</b></div>`:'');
+    }
+  }
+  const lg=document.getElementById('legend');
+  if(lg){
+    const counts=(ana&&ana.view.kindCount)||{};
+    let h='<div class="t">相互作用</div>',n=0;
+    for(const k of KIND_ORDER){
+      const c=counts[k]||0;
+      if(!c||!VIEW.inter[k]) continue;
+      n++;
+      h+=`<div class="r"><span class="l${KIND[k].solid?' solid':''}" style="border-top-color:${KIND[k].color}"></span>`+
+         `${esc(KIND[k].name)}<span style="margin-left:auto;color:var(--muted)">${c}</span></div>`;
+    }
+    if(!n){ lg.style.display='none'; } else { lg.innerHTML=h; lg.style.display=''; }
+  }
+  const counts=(ana&&ana.view.kindCount)||{};
+  for(const k in KIND_COUNT_ID){
+    const e=document.getElementById(KIND_COUNT_ID[k]);
+    if(e) e.textContent=counts[k]?String(counts[k]):'';
+  }
+}
+
+/* ---- 7.10 主渲染入口 ---- */
+function render3D(opt){
+  opt=opt||{};
+  const cx=APP.cur;
+  if(!cx){ clearViewer(); return; }
+  if(!has3Dmol()){ toast('3Dmol.js 未加载：请联网后刷新页面','warn'); return; }
+  const v=ensureViewer();
+  setEmptyHint(false);
+  loadModel(v,cx);
+  if(!v.__slabFull){ v.zoomTo({},0); captureSlab(v); }
+  applyStyles(v,cx);
+  applyIfaceStick(v,cx);
+  applyShapes(v,cx);
+  applyLabels(v,cx);
+  applySurface(v,cx);
+  drawSelMarker(v,cx);
+  bindPicking(v,cx);
+  if(opt.keepCamera!==true){
+    if(opt.zoomKeys&&opt.zoomKeys.length) v.zoomTo(selKeys(opt.zoomKeys),opt.duration||0);
+    else v.zoomTo({},opt.duration||0);
+  }
+  applySlab(v);
+  v.render();
+  updateOverlays(cx);
+}
+function refresh3D(){ render3D({keepCamera:true}); }
+function resetView(){ render3D({keepCamera:false}); }
+function focusInterface(){
+  const ana=APP.ana;
+  if(!ana||!ana.view.nRes){ resetView(); return; }
+  render3D({zoomKeys:[...ana.view.resStat.keys()],duration:420});
+}
+function focusParatopeEpitope(){
+  const ana=APP.ana; if(!ana) return;
+  const keys=[...new Set([...ana.split.paratope.keys(),...ana.split.epitope.keys()])];
+  if(!keys.length){ resetView(); return; }
+  render3D({zoomKeys:keys,duration:420});
+}
+function exportPng(){
+  const v=APP.viewer;
+  if(!v||!APP.cur){ toast('尚未载入结构','warn'); return; }
+  v.render();
+  const uri=v.pngURI();
+  const a=document.createElement('a');
+  a.href=uri;
+  a.download=(APP.cur.name||'interface').replace(/[^\w.\-]+/g,'_')+'_view.png';
+  document.body.appendChild(a); a.click(); a.remove();
+}
+
+/* ---- 7.11 左侧视图控件：链列表 / 调色板 / 残基下拉 ---- */
+function fillChainList(cx){
+  const box=document.getElementById('chainList'); if(!box) return;
+  if(!cx){ box.innerHTML=''; return; }
+  if(!VIEW.activeChain||!cx.chains.some(c=>c.id===VIEW.activeChain))
+    VIEW.activeChain=([...cx.selected][0]||cx.chains[0]||{}).id||null;
+  box.innerHTML=cx.chains.map(c=>{
+    const on=cx.selected.has(c.id);
+    const role=ROLE[c.role]||ROLE.NA;
+    const act=c.id===VIEW.activeChain?' style="border-color:#a9c3ee"':'';
+    return `<div class="chainrow ${on?'on':'off'}" data-chain="${esc(c.id)}"${act}>
+      <span class="chip" data-act="vis"><span class="box">${on?'✓':''}</span>
+        <span class="dot" style="background:${esc(chainColor(cx,c.id))}"></span>
+        <span class="lbl">链 ${esc(c.id)}</span></span>
+      <span class="role" style="background:${role.color};cursor:pointer" data-act="pick">${esc(role.cls)}</span>
+    </div>`;
+  }).join('');
+}
+function fillSwatch(cx){
+  const box=document.getElementById('swatch'); if(!box) return;
+  if(!cx){ box.innerHTML=''; return; }
+  box.innerHTML=CHIMERAX_COLORS.map(([c,n])=>
+    `<span class="sw" data-color="${c}" title="${esc(n)} → 链 ${esc(VIEW.activeChain||'')}" style="background:${c}"></span>`
+  ).join('');
+}
+function fillResidueSelect(cx){
+  const sel=document.getElementById('residueSelect'); if(!sel) return;
+  if(!cx){ sel.innerHTML=''; return; }
+  const list=cx.residues.filter(r=>resVisible(cx,r));
+  sel.innerHTML='<option value="">— 选择残基 —</option>'+list.map(r=>
+    `<option value="${esc(r.key)}">${esc(aaResLabel(r))}${r.abRegion?' · '+esc(r.abRegion):''}</option>`
+  ).join('');
+  if(APP.selRes&&list.some(r=>r.key===APP.selRes)) sel.value=APP.selRes;
+}
+function fillViewControls(cx){
+  fillChainList(cx);
+  fillSwatch(cx);
+  fillResidueSelect(cx);
+}
+
+/* 视图类控件的初始化（在启动阶段调用一次） */
+function initViewControls(){
+  document.querySelectorAll('.sec>.hd').forEach(hd=>{
+    hd.addEventListener('click',()=>hd.parentElement.classList.toggle('closed'));
+  });
+  const byId=id=>document.getElementById(id);
+  const on=(id,ev,fn)=>{ const e=byId(id); if(e) e.addEventListener(ev,fn); };
+
+  on('bg','change',e=>{ VIEW.bg=e.target.value; const v=APP.viewer; if(v) v.setBackgroundColor(VIEW.bg);
+    refresh3D(); });
+  on('repr','change',e=>{ VIEW.repr=e.target.value; refresh3D(); });
+  on('colorMode','change',e=>{ VIEW.colorMode=e.target.value; refresh3D(); });
+  on('surfaceMode','change',e=>{ VIEW.surfaceMode=e.target.value; refresh3D(); });
+  on('surfop','input',e=>{ VIEW.surfop=+e.target.value; refresh3D(); });
+  on('op','input',e=>{ VIEW.op=+e.target.value; refresh3D(); });
+  on('ifaceStick','change',e=>{ VIEW.ifaceStick=e.target.checked; refresh3D(); });
+  on('ifaceHi','change',e=>{ VIEW.ifaceHi=e.target.checked; refresh3D(); });
+  on('label','change',e=>{ VIEW.label=e.target.checked; refresh3D(); });
+  on('labelMode','change',e=>{ VIEW.labelMode=e.target.value; refresh3D(); });
+  on('lsize','input',e=>{ VIEW.lsize=+e.target.value; refresh3D(); });
+  on('autolabel','change',e=>{ VIEW.autolabel=e.target.checked; refresh3D(); });
+  on('depth','change',e=>{
+    VIEW.depth=e.target.checked;
+    const v=APP.viewer; if(!v) return;
+    applySlab(v); v.render();
+  });
+  on('frontv','input',e=>{ VIEW.frontv=+e.target.value; const v=APP.viewer; if(v){ applySlab(v); v.render(); } });
+  on('backv','input',e=>{ VIEW.backv=+e.target.value; const v=APP.viewer; if(v){ applySlab(v); v.render(); } });
+
+  /* 相互作用类型开关 */
+  for(const k of KIND_ORDER){
+    const el=byId(KIND[k].toggle);
+    if(!el) continue;
+    el.addEventListener('click',()=>{
+      VIEW.inter[k]=!VIEW.inter[k];
+      el.classList.toggle('on',VIEW.inter[k]);
+      refresh3D();
+    });
+  }
+  /* 链列表 */
+  const cl=byId('chainList');
+  if(cl) cl.addEventListener('click',ev=>{
+    const row=ev.target.closest('.chainrow'); if(!row) return;
+    const cx=APP.cur; if(!cx) return;
+    const id=row.getAttribute('data-chain');
+    const act=(ev.target.closest('[data-act]')||{}).getAttribute?.('data-act')||'pick';
+    if(act==='vis'){
+      if(cx.selected.has(id)) cx.selected.delete(id); else cx.selected.add(id);
+      fillViewControls(cx);
+      refresh3D();
+    }else{
+      VIEW.activeChain=id;
+      fillViewControls(cx);
+    }
+  });
+  /* 调色板 */
+  const sw=byId('swatch');
+  if(sw) sw.addEventListener('click',ev=>{
+    const s=ev.target.closest('.sw'); if(!s||!APP.cur||!VIEW.activeChain) return;
+    VIEW.chainColor[VIEW.activeChain]=s.getAttribute('data-color');
+    fillViewControls(APP.cur);
+    refresh3D();
+  });
+  /* 残基选择 */
+  on('residueSelect','change',e=>{
+    APP.selRes=e.target.value||null;
+    const v=APP.viewer; if(!v||!APP.cur) return;
+    applyShapes(v,APP.cur); drawSelMarker(v,APP.cur); v.render();
+    if(APP.selRes) showPickInfo(APP.selRes); else hidePickInfo();
+  });
+  on('hideResidue','click',()=>{
+    const k=APP.selRes, cx=APP.cur;
+    if(!k||!cx){ toast('请先选择一个残基','warn'); return; }
+    if(cx.hidden.has(k)){ cx.hidden.delete(k); toast('已恢复显示 '+k); }
+    else { cx.hidden.add(k); toast('已隐藏 '+k); }
+    refresh3D(); fillViewControls(cx);
+  });
+  on('resetLabelPos','click',()=>{
+    const cx=APP.cur; if(!cx) return;
+    cx.labelOffset={};
+    refresh3D();
+    toast('标签位置已重置');
+  });
+}
+
+/*__PART7_END__*/
+
+/* =====================================================================================
+   8. 结果面板（概览 / 相互作用 / 界面残基 / 抗体分析 / 埋藏面积 / 多结构对比）
+   ===================================================================================== */
+const dom=id=>document.getElementById(id);
+const FOCUS_LABEL={abag:'抗体–抗原界面',all:'全部链间界面',hl:'VH–VL（重轻链）界面',none:'—'};
+const FOCUS_NOTE={
+  abag:'仅统计抗体链（VH/VL）与抗原链之间的接触，H–L 链内接触已排除。',
+  hl:'当前只分析 VH–VL 之间的界面（用于考察重轻链配对），抗原链接触未计入。',
+  all:'当前统计所有已选链两两之间的界面接触，未按抗体/抗原拆分。'
+};
+const SIDE_LABEL={paratope:'互补位',epitope:'表位',other:'其他'};
+const SIDE_COLOR={paratope:IFACE_COLORS.paratope,epitope:IFACE_COLORS.epitope,other:IFACE_COLORS.other};
+const LEVEL_COLOR={'核心热点':'#d64550','重要':'#d9822b','一般':'#9fb0c8'};
+
+/* ---- 8.1 通用小工具 ---- */
+function fmt(v,d){ return (v==null||!isFinite(v))?'—':(+v).toFixed(d==null?1:d); }
+function fmtInt(v){ return (v==null||!isFinite(v))?'—':Math.round(v).toLocaleString('en-US'); }
+function pctStr(v,d){ return (v==null||!isFinite(v))?'—':(100*v).toFixed(d==null?0:d)+'%'; }
+function sidePill(side){
+  return `<span class="pill" style="background:${SIDE_COLOR[side]}1f;border-color:${SIDE_COLOR[side]}55;color:${SIDE_COLOR[side]}">${esc(SIDE_LABEL[side]||side)}</span>`;
+}
+function cardHTML(title,body,opt){
+  opt=opt||{};
+  const right=opt.right?`<span class="spacer"></span>${opt.right}`:'';
+  return `<div class="card"><div class="ch">${esc(title)}${right}</div>`+
+    `<div class="cb${opt.flush?' flush':''}">${body}</div></div>`;
+}
+function kpiHTML(list){
+  return `<div class="kpis">`+list.map(k=>
+    `<div class="kpi${k.cls?' '+k.cls:''}"><div class="k">${esc(k.k)}</div>`+
+    `<div class="v">${k.v}${k.u?`<span class="u">${esc(k.u)}</span>`:''}</div></div>`).join('')+`</div>`;
+}
+function barsHTML(rows,opt){
+  opt=opt||{};
+  const max=opt.max||Math.max(1,...rows.map(r=>Math.abs(r.value)||0));
+  return `<div class="bars">`+rows.map(r=>{
+    const w=Math.max(2,Math.round(100*(Math.abs(r.value)||0)/max));
+    return `<div class="bar"><span class="nm" title="${esc(r.title||r.name)}">${esc(r.name)}</span>`+
+      `<span class="track"><span class="fill" style="width:${w}%;background:${r.color||'var(--accent)'}"></span></span>`+
+      `<span class="val">${esc(r.text!=null?r.text:fmt(r.value,opt.d==null?1:opt.d))}</span></div>`;
+  }).join('')+`</div>`;
+}
+function kvHTML(pairs){
+  return `<div class="kv">`+pairs.map(p=>
+    `<div class="k">${esc(p[0])}</div><div class="v${p[2]?' plain':''}">${p[1]}</div>`).join('')+`</div>`;
+}
+function emptyHTML(big,sub){
+  return `<div class="empty"><div class="big">${esc(big)}</div>${sub||''}</div>`;
+}
+function tipsHTML(list){
+  return `<div class="tips">`+list.map(t=>`<div class="tp"><i>·</i><span>${t}</span></div>`).join('')+`</div>`;
+}
+function focusHead(cx){
+  const ana=APP.ana;
+  return `<div class="panehead"><div class="sp mini">${esc(cx.name)}`+
+    (ana?` · ${esc(FOCUS_LABEL[ana.focus]||ana.focus)}`:'')+`</div>`+
+    `<button class="btn sm" id="ovReset" title="恢复初始视角">重置视角</button>`+
+    `<button class="btn sm" id="ovFocus" title="缩放到界面残基">聚焦界面</button>`+
+    `<button class="btn sm" id="ovAbGl" title="缩放到互补位 / 表位">互补位·表位</button>`+
+    `<button class="btn sm" id="ovPng" title="导出当前 3D 视图为 PNG">PNG</button></div>`;
+}
+/* 相互作用类型筛选 chips（与左侧开关联动） */
+function kindChipsHTML(view,id){
+  const counts=(view&&view.kindCount)||{};
+  const ks=KIND_ORDER.filter(k=>counts[k]);
+  if(!ks.length) return '';
+  return `<div class="toolrow"${id?' id="'+id+'"':''}>`+
+    `<span class="mini">显示类型：</span>`+
+    ks.map(k=>`<span class="chipbtn${VIEW.inter[k]?' on':''}" data-kind="${k}">`+
+      `<span class="dot" style="background:${KIND[k].color}"></span>${esc(KIND[k].name)}`+
+      `<span class="n">${counts[k]}</span></span>`).join('')+`</div>`;
+}
+
+/* ---- 8.2 可排序表格引擎 ---- */
+const TABLES={};
+let _tabSeq=0;
+/* cols: [{key,label,num?:bool,html?:bool,render?(row)}]；opt:{rowKey?(row),sortKey,sortDir,tall} */
+function tableHTML(cols,rows,opt){
+  opt=opt||{};
+  const id='tbl'+(++_tabSeq);
+  TABLES[id]={cols,rows,opt,key:opt.sortKey||(cols[0]?cols[0].key:null),dir:opt.sortDir||'desc'};
+  return `<div class="tw${opt.tall?' tall':''}" data-table="${id}">${tableInnerHTML(id)}</div>`;
+}
+function tableSorted(id){
+  const t=TABLES[id]; if(!t) return [];
+  const col=t.cols.find(c=>c.key===t.key)||t.cols[0];
+  const val=r=>(col.sortVal?col.sortVal(r):r[col.key]);
+  const dir=t.dir==='asc'?1:-1;
+  return t.rows.slice().sort((a,b)=>{
+    const va=val(a),vb=val(b);
+    if(va==null&&vb==null) return 0;
+    if(va==null) return 1;
+    if(vb==null) return -1;
+    if(typeof va==='number'&&typeof vb==='number') return (va-vb)*dir;
+    return String(va).localeCompare(String(vb),'zh-Hans-CN',{numeric:true})*dir;
+  });
+}
+function tableInnerHTML(id){
+  const t=TABLES[id]; if(!t) return '';
+  const head='<tr>'+t.cols.map(c=>{
+    const on=c.key===t.key;
+    return `<th class="sortable${on?' '+(t.dir==='asc'?'asc':'desc'):''}" data-tkey="${esc(c.key)}">${esc(c.label)}</th>`;
+  }).join('')+'</tr>';
+  const body=tableSorted(id).map(r=>{
+    const rk=t.opt.rowKey?t.opt.rowKey(r):null;
+    return `<tr${rk?' data-axt="'+esc(rk)+'"':''}>`+t.cols.map(c=>{
+      const v=c.render?c.render(r):r[c.key];
+      return `<td${c.num?' class="num"':''}>${c.html?v:esc(v==null?'—':v)}</td>`;
+    }).join('')+'</tr>';
+  }).join('');
+  return `<table><thead>${head}</thead><tbody>${body}</tbody></table>`;
+}
+function tableRefresh(id){
+  const box=document.querySelector('[data-table="'+id+'"]');
+  if(box) box.innerHTML=tableInnerHTML(id);
+}
+
+/* ---- 8.3 面板切换 ---- */
+const PANE_ORDER=['overview','inter','residues','antibody','area','compare'];
+let CUR_PANE='overview';
+function setPane(name){
+  if(PANE_ORDER.indexOf(name)<0) name='overview';
+  CUR_PANE=name;
+  document.querySelectorAll('#tabs .tab').forEach(t=>
+    t.classList.toggle('on',t.getAttribute('data-pane')===name));
+  document.querySelectorAll('.panes>.pane').forEach(p=>
+    p.classList.toggle('on',p.id==='pane-'+name));
+  if(APP.ana&&PANE_RENDER[name]) PANE_RENDER[name](APP.ana);
+}
+function renderPanels(ana){
+  APP.ana=ana;
+  for(const n of PANE_ORDER) if(PANE_RENDER[n]) PANE_RENDER[n](ana);
+}
+function refreshPane(){
+  if(APP.ana&&PANE_RENDER[CUR_PANE]) PANE_RENDER[CUR_PANE](APP.ana);
+}
+/* 面板内的事件代理只安装一次 */
+function initPanelEvents(){
+  const tabs=dom('tabs');
+  if(tabs) tabs.addEventListener('click',ev=>{
+    const t=ev.target.closest('.tab'); if(t) setPane(t.getAttribute('data-pane'));
+  });
+  const pt=dom('panelToggle');
+  if(pt) pt.addEventListener('click',()=>{
+    const main=dom('main'); if(!main) return;
+    if(window.innerWidth<=1240){
+      main.classList.toggle('showres');
+      pt.textContent=main.classList.contains('showres')?'收起面板':'结果面板';
+    }else{
+      main.classList.toggle('noright');
+      pt.textContent=main.classList.contains('noright')?'结果面板':'收起面板';
+    }
+  });
+  const mc=dom('modalClose');
+  if(mc) mc.addEventListener('click',()=>closeModal());
+  const md=dom('modal');
+  if(md) md.addEventListener('click',ev=>{ if(ev.target===md) closeModal(); });
+
+  /* 表格排序 / 行点击 → 定位残基 */
+  __addDoc('click',ev=>{
+    const box=ev.target.closest('[data-table]');
+    if(box){
+      const id=box.getAttribute('data-table'), t=TABLES[id];
+      const th=ev.target.closest('th[data-tkey]');
+      if(t&&th){
+        const k=th.getAttribute('data-tkey');
+        if(t.key===k) t.dir=t.dir==='asc'?'desc':'asc'; else { t.key=k; t.dir='desc'; }
+        tableRefresh(id);
+        return;
+      }
+      const tr=ev.target.closest('tr[data-axt]');
+      if(tr){ pickResidue(tr.getAttribute('data-axt')); return; }
+    }
+    const chip=ev.target.closest('.chipbtn[data-kind]');
+    if(chip){
+      const k=chip.getAttribute('data-kind');
+      VIEW.inter[k]=!VIEW.inter[k];
+      chip.classList.toggle('on',VIEW.inter[k]);
+      refresh3D();
+      const el=dom(KIND[k].toggle); if(el) el.classList.toggle('on',VIEW.inter[k]);
+      refreshPane();
+      return;
+    }
+    if(ev.target.closest('#ovReset')){ resetView(); return; }
+    if(ev.target.closest('#ovFocus')){ focusInterface(); return; }
+    if(ev.target.closest('#ovAbGl')){ focusParatopeEpitope(); return; }
+    if(ev.target.closest('#ovPng')){ exportPng(); return; }
+  });
+  /* 热图悬停读数 */
+  __addDoc('mouseover',ev=>{
+    const c=ev.target.closest('.hmcell'); if(!c) return;
+    document.querySelectorAll('.hmcell.hov').forEach(x=>x.classList.remove('hov'));
+    c.classList.add('hov');
+    const tip=dom('hmTip');
+    if(tip) tip.textContent=(c.getAttribute('data-r')||'')+' × '+(c.getAttribute('data-c')||'')+
+      '：'+(c.getAttribute('data-v')||'0')+' 个接触原子对';
+  });
+  __addDoc('mouseout',ev=>{
+    const c=ev.target.closest('.hmcell'); if(!c) return;
+    c.classList.remove('hov');
+    const tip=dom('hmTip'); if(tip) tip.textContent='悬停色块查看该残基对的接触原子对数';
+  });
+}
+function openModal(title,bodyHTML){
+  const m=dom('modal'); if(!m) return;
+  const t=dom('modalTitle'); if(t) t.textContent=title;
+  const b=dom('modalBody'); if(b) b.innerHTML=bodyHTML;
+  m.classList.add('on');
+}
+function closeModal(){ const m=dom('modal'); if(m) m.classList.remove('on'); }
+
+/* 表格行 / 3D 拾取共用的残基定位 */
+function pickResidue(key){
+  const cx=APP.cur; if(!cx||!key) return;
+  APP.selRes=key;
+  const sel=dom('residueSelect');
+  if(sel&&sel.querySelector('option[value="'+String(key).replace(/"/g,'')+'"]')) sel.value=key;
+  const v=APP.viewer;
+  if(v){ applyShapes(v,cx); drawSelMarker(v,cx); v.render(); }
+  showPickInfo(key);
+}
+
+/* ---- 8.4 3D 视图下方的同步相互作用条 ---- */
+function ensureIfaceStrip(){
+  let el=dom('ifaceStrip');
+  if(el) return el;
+  const stage=document.querySelector('.stage'); if(!stage) return null;
+  el=document.createElement('div');
+  el.className='ifacestrip'; el.id='ifaceStrip';
+  el.innerHTML=`<div class="sh"><b style="color:var(--ink2)">相互作用表</b>`+
+    `<span id="ifaceStripInfo"></span><span style="flex:1"></span>`+
+    `<span class="mini">点击行可在 3D 中定位残基</span></div>`+
+    `<div class="sb" id="ifaceStripBody"></div>`;
+  stage.appendChild(el);
+  return el;
+}
+function updateIfaceStrip(ana){
+  const cb=dom('showTable');
+  const on=cb?cb.checked:true;
+  const el=ensureIfaceStrip(); if(!el) return;
+  const list=ana?ana.view.interactions.filter(it=>VIEW.inter[it.kind]):[];
+  if(!ana||!on||!list.length){ el.style.display='none'; return; }
+  el.style.display='';
+  const info=dom('ifaceStripInfo');
+  if(info) info.textContent='共 '+list.length+' 条（已开启类型）';
+  const cols=[
+    {key:'kind',label:'类型',html:true,render:r=>`<span class="dot" style="background:${KIND[r.kind].color}"></span>${esc(KIND[r.kind].name)}`},
+    {key:'resA',label:'残基 A'},
+    {key:'resB',label:'残基 B'},
+    {key:'dist',label:'距离 (Å)',num:true,html:true,render:r=>fmt(r.dist,2)},
+    {key:'nContact',label:'接触原子对',num:true}
+  ];
+  const body=dom('ifaceStripBody');
+  if(body) body.innerHTML=tableHTML(cols,list,{sortKey:'dist',sortDir:'asc',rowKey:r=>r.keyA});
+}
+
+/* ---- 8.5 标签页一：概览 ---- */
+function structureInfo(cx,ana){
+  const s=ana?ana.summary:null;
+  const list=[
+    ['结构名称',esc(cx.name),true],
+    ['已选链',cx.chains.filter(c=>cx.selected.has(c.id)).map(c=>esc(c.id)).join(', ')||'—',true],
+    ['可见残基',fmtInt(cx.residues.filter(r=>resVisible(cx,r)).length)],
+    ['原子数',fmtInt(cx.atoms.length)]
+  ];
+  if(s){
+    list.push(['分析焦点',esc(FOCUS_LABEL[s.focus]||s.focus),true]);
+    list.push(['抗体 V 区',s.hasAb?('VH '+esc(s.vh||'—')+' · VL '+esc(s.vl||'—')):'未识别',true]);
+    list.push(['抗原链',s.agChains.length?esc(s.agChains.join(', ')):'—',true]);
+    if(s.hasAb) list.push(['CDR 方案',esc(s.scheme),true]);
+    list.push(['接触截断',fmt(ana.view.cutoff,1)+' Å',true]);
+    list.push(['氢键判据',ana.view.hbondMode==='geom'?'几何 D–H···A':'距离 N/O···N/O',true]);
+    list.push(['计算耗时',s.time.total+' ms（界面 '+s.time.iface+' · 面积 '+s.time.area+'）']);
+  }
+  return list;
+}
+function readoutTips(ana){
+  const s=ana.summary, sp=ana.split.summary, t=[];
+  t.push(FOCUS_NOTE[ana.focus]||'');
+  if(s.hasAb){
+    t.push(sp.cdrFrac>=0.8
+      ? '互补位有 <b>'+pctStr(sp.cdrFrac)+'</b> 位于 CDR，符合抗体以 CDR 识别抗原的典型模式。'
+      : '互补位中框架区残基占 <b>'+pctStr(1-sp.cdrFrac)+'</b>，可切换 CDR 定义方案或手动覆盖边界后再看。');
+    t.push('互补位共 <b>'+fmtInt(sp.nParatopeContacts)+'</b> 处原子接触、表位共 <b>'+fmtInt(sp.nEpitopeContacts)+
+      '</b> 处，其中 CDR 贡献 <b>'+pctStr(sp.cdrContactFrac)+'</b>。');
+  }else{
+    t.push('未识别到抗体 V 区，当前按普通蛋白–蛋白界面统计。可点击左侧「自动识别抗体链与 CDR」，或手动指定 CDR 覆盖范围。');
+  }
+  const top=ana.hotspots.rows[0];
+  if(top) t.push('排序第一的热点候选为 <b>'+esc(top.aa+top.resi+':'+top.chain)+'</b>（评分 '+
+    top.score.toFixed(1)+'，'+esc(top.level)+'，'+(top.side==='paratope'?'互补位':'表位')+'）。');
+  if(s.nInteractions===0)
+    t.push('未检测到特异性相互作用（氢键/盐桥/π 等），界面可能仅由范德华接触构成；可放宽接触截断或改用距离判据复查。');
+  t.push('点击任意表格行可在 3D 视图中定位该残基；按住 <b>Alt</b> 拖动标签可调整标签位置。');
+  return t;
+}
+function renderOverview(ana){
+  const el=dom('pane-overview'); if(!el) return;
+  const cx=ana.cx, s=ana.summary, v=ana.view;
+  if(!v.nRes){
+    el.innerHTML=focusHead(cx)+
+      cardHTML('界面概览',emptyHTML('未检测到跨链界面接触',
+        '请确认已勾选至少两条链；也可调大「接触截断」或改用氢键距离判据。<br>'+
+        '若结构含糖基/配体且希望一并统计，请勾选「把糖基/配体等非标准残基计入界面」。'))+
+      cardHTML('结构信息',kvHTML(structureInfo(cx,ana)));
+    return;
+  }
+  const kindRows=KIND_ORDER.filter(k=>(s.kindCount[k]||0)>0).map(k=>({
+    name:KIND[k].name,value:s.kindCount[k],color:KIND[k].color,text:String(s.kindCount[k])
+  }));
+  const hotRows=(s.topHotspots||[]).map(h=>({
+    name:h.label.replace(':',' : '),value:h.score,color:LEVEL_COLOR[h.level]||'#9fb0c8',
+    text:h.score.toFixed(1),
+    title:h.label+' · '+h.level+' · 接触 '+h.contacts+' · ΔASA '+fmt(h.dasa,1)+' Å² · '+(h.region||'')
+  }));
+  el.innerHTML=
+    focusHead(cx)+
+    kpiHTML([
+      {k:'界面残基',v:s.nIfaceRes,cls:'accent'},
+      {k:'互补位残基',v:s.nParatope},
+      {k:'表位残基',v:s.nEpitope},
+      {k:'相互作用',v:s.nInteractions,u:'组'},
+      {k:'BSA',v:fmt(s.bsa,0),u:'Å²'},
+      {k:'ΔASA',v:fmt(s.dASA,0),u:'Å²'},
+      {k:'核心热点',v:s.hotCount,cls:'violet'},
+      {k:'CDR 占互补位',v:pctStr(s.cdrFrac),cls:'teal'}
+    ])+
+    cardHTML('结构信息',kvHTML(structureInfo(cx,ana)))+
+    cardHTML('相互作用类型分布',
+      kindRows.length?barsHTML(kindRows,{max:v.interactions.length}):emptyHTML('无跨链相互作用'),
+      {right:'<span class="mini">共 '+v.interactions.length+' 组</span>'})+
+    (hotRows.length?cardHTML('热点候选 Top',barsHTML(hotRows,{max:100})+
+      '<div class="note" style="margin-top:9px">热点分由四分量加权合成（接触原子数 / ΔASA / 氢键·盐桥 / 是否位于 CDR），'+
+      '权重可在左侧调整；该指标用于排序与筛选，<b>不是 ΔΔG 预测值</b>。</div>'):'')+
+    cardHTML('快速解读',tipsHTML(readoutTips(ana)));
+}
+
+/* ---- 8.6 标签页二：相互作用 ---- */
+function interNote(it){
+  switch(it.kind){
+    case 'pipi': return it.stacking?('π 堆积 · '+it.stacking):'π 堆积';
+    case 'waterbridge': return '经水分子桥接（O···O '+fmt(it.d1,2)+' / '+fmt(it.d2,2)+' Å）';
+    case 'hbond': return it.flex?'柔性供体，按重原子距离判定':'满足 D–H···A 几何';
+    case 'saltbridge': return '正负电荷原子对';
+    case 'disulfide': return 'SG–SG 共价';
+    case 'hydrophobic': return '侧链碳原子接触';
+    default: return '';
+  }
+}
+function renderInter(ana){
+  const el=dom('pane-inter'); if(!el) return;
+  const v=ana.view, all=v.interactions;
+  if(!all.length){
+    el.innerHTML=cardHTML('相互作用明细',emptyHTML('未检测到跨链相互作用',
+      '界面定义仍会统计重原子接触，但氢键/盐桥等化学判据未命中。<br>可尝试放宽接触截断、切换氢键判据，或关闭「仅统计跨链」的隐含约束（本工具默认只统计跨链）。'));
+    return;
+  }
+  const list=all.filter(it=>VIEW.inter[it.kind]);
+  const cols=[
+    {key:'kind',label:'类型',html:true,sortVal:r=>KIND[r.kind].name,
+      render:r=>'<span class="dot" style="background:'+KIND[r.kind].color+'"></span>'+esc(KIND[r.kind].name)},
+    {key:'resA',label:'残基 A'},
+    {key:'resB',label:'残基 B'},
+    {key:'atomA',label:'原子 A',html:true,render:r=>r.kind==='pipi'?'环心':esc(r.atomA||'—')},
+    {key:'atomB',label:'原子 B',html:true,render:r=>r.kind==='pipi'?'环心':esc(r.atomB||'—')},
+    {key:'dist',label:'距离 (Å)',num:true,html:true,render:r=>fmt(r.dist,2)},
+    {key:'nContact',label:'接触原子对',num:true},
+    {key:'note',label:'说明',render:r=>interNote(r)}
+  ];
+  el.innerHTML=
+    cardHTML('相互作用筛选',kindChipsHTML(v)+
+      '<div class="mini" style="margin-top:7px">关闭某类型只影响显示与统计，不改变判定结果。勾选左侧「在 3D 视图下方同步显示相互作用表」可在结构下方常驻一张精简表。</div>')+
+    cardHTML('相互作用明细',
+      '<div class="mini" style="padding:8px 10px 4px">显示 '+list.length+' / '+all.length+' 条 · 点击行可在 3D 中定位残基 A</div>'+
+      tableHTML(cols,list,{tall:true,rowKey:r=>r.keyA,sortKey:'dist',sortDir:'asc'}),
+      {flush:true});
+}
+
+/* ---- 8.7 标签页三：界面残基 ---- */
+const RES_FILTER={side:'all',q:''};
+function resFiltered(ana){
+  const q=RES_FILTER.q.toLowerCase();
+  return ana.residues.filter(r=>{
+    if(RES_FILTER.side!=='all'&&r.side!==RES_FILTER.side) return false;
+    if(!q) return true;
+    const s=[r.aa,r.resi,r.chain,r.resn,r.region,r.number,r.level,r.topPartner?r.topPartner.label:'']
+      .join(' ').toLowerCase();
+    return s.indexOf(q)>=0;
+  });
+}
+function resTableCols(){
+  return [
+    {key:'lbl',label:'残基',html:true,sortVal:r=>resiSortVal(r.resi),render:r=>esc(r.aa+r.resi+':'+r.chain)},
+    {key:'side',label:'侧',html:true,sortVal:r=>r.side,render:r=>sidePill(r.side)},
+    {key:'region',label:'区段',render:r=>r.region||'—'},
+    {key:'number',label:'抗体编号',num:true,render:r=>r.number||'—'},
+    {key:'contacts',label:'接触原子',num:true},
+    {key:'partners',label:'伙伴',num:true},
+    {key:'minDist',label:'最近距离 (Å)',num:true,html:true,render:r=>r.minDist==null?'—':fmt(r.minDist,2)},
+    {key:'dasa',label:'ΔASA (Å²)',num:true,html:true,render:r=>fmt(r.dasa,1)},
+    {key:'score',label:'热点分',num:true,html:true,render:r=>r.score?r.score.toFixed(1):'—'},
+    {key:'level',label:'等级',html:true,sortVal:r=>r.score,
+      render:r=>r.level?'<span style="color:'+(LEVEL_COLOR[r.level]||'var(--ink2)')+';font-weight:600">'+esc(r.level)+'</span>':'—'},
+    {key:'partner',label:'主要伙伴',html:true,sortVal:r=>r.topPartner?r.topPartner.contacts:0,
+      render:r=>r.topPartner?esc(r.topPartner.label)+' <span class="mini">('+r.topPartner.contacts+')</span>':'—'}
+  ];
+}
+function renderResidueTableInto(){
+  const box=dom('resTableWrap'); if(!box) return;
+  const ana=APP.ana; if(!ana){ box.innerHTML=''; return; }
+  const rows=resFiltered(ana);
+  box.innerHTML='<div class="mini" style="padding:8px 10px 4px">显示 '+rows.length+' / '+ana.residues.length+
+    ' 个界面残基</div>'+
+    tableHTML(resTableCols(),rows,{tall:true,rowKey:r=>r.key,sortKey:'score'});
+}
+function fingerprintHTML(fp){
+  if(!fp||!fp.n) return '<div class="mini">无残基</div>';
+  const rows=fp.rows.filter(r=>r.n>0).sort((a,b)=>b.enrich-a.enrich).slice(0,10).map(r=>({
+    name:r.aa+' · '+r.n,value:r.enrich,color:'var(--accent)',text:r.enrich.toFixed(2)+'×',
+    title:r.aa+'：观测 '+r.n+'（'+pctStr(r.frac,1)+'）· 背景期望 '+fmt(r.expCount,1)+
+      '（'+pctStr(r.expFrac,2)+'）· 富集 '+r.enrich.toFixed(2)+'×'
+  }));
+  return '<div class="mini" style="margin-bottom:6px">共 '+fp.n+' 个残基 · χ² = '+fp.chi2.toFixed(1)+'</div>'+
+    barsHTML(rows,{d:2});
+}
+function renderResidues(ana){
+  const el=dom('pane-residues'); if(!el) return;
+  if(!ana.residues.length){
+    el.innerHTML=cardHTML('界面残基',emptyHTML('无界面残基','当前界面定义下没有任何跨链接触残基。'));
+    return;
+  }
+  const counts={all:ana.residues.length,paratope:0,epitope:0,other:0};
+  for(const r of ana.residues) counts[r.side]=(counts[r.side]||0)+1;
+  const chips=[['all','全部'],['paratope','互补位'],['epitope','表位'],['other','其他']]
+    .filter(x=>x[0]==='all'||counts[x[0]])
+    .map(x=>'<span class="chipbtn'+(RES_FILTER.side===x[0]?' on':'')+'" data-side="'+x[0]+'">'+
+      x[1]+'<span class="n">'+counts[x[0]]+'</span></span>').join('');
+  el.innerHTML=
+    cardHTML('筛选',`<div class="toolrow">${chips}</div>`+
+      '<div class="row" style="margin-top:8px"><input type="text" id="resSearch" placeholder="搜索残基 / 类型 / 编号，如 R21 或 CDR-H2"'+
+      ` value="${esc(RES_FILTER.q)}"></div>`)+
+    cardHTML('界面残基表','<div id="resTableWrap"></div>',{flush:true})+
+    cardHTML('界面组成指纹',
+      '<div class="sub">表位（抗原侧）</div>'+fingerprintHTML(ana.fingerprint.epitope)+
+      '<div class="sub" style="margin-top:12px">互补位（抗体侧）</div>'+fingerprintHTML(ana.fingerprint.paratope)+
+      '<div class="note blue" style="margin-top:10px">富集倍数 = 观测频率 ÷ 平均蛋白背景频率（SwissProt 近似组成）。'+
+      '富集 &gt; 2 视为明显偏好；χ² 越大表示界面组成越偏离一般蛋白表面。</div>');
+  renderResidueTableInto();
+}
+function initResidueFilterEvents(){
+  __addDoc('click',ev=>{
+    const c=ev.target.closest('.chipbtn[data-side]'); if(!c) return;
+    RES_FILTER.side=c.getAttribute('data-side');
+    document.querySelectorAll('.chipbtn[data-side]').forEach(x=>
+      x.classList.toggle('on',x.getAttribute('data-side')===RES_FILTER.side));
+    renderResidueTableInto();
+  });
+  __addDoc('input',ev=>{
+    if(!ev.target||ev.target.id!=='resSearch') return;
+    RES_FILTER.q=ev.target.value.trim();
+    renderResidueTableInto();
+  });
+}
+
+/* ---- 8.8 标签页四：抗体分析 ---- */
+function abRegionRows(ab){
+  const rows=[];
+  for(const cid of Object.keys(ab.chains)){
+    const c=ab.chains[cid];
+    for(const reg of c.regions){
+      rows.push({chain:cid,kind:c.kind,label:reg.label,name:reg.name,type:reg.type,
+        resiFrom:reg.resiFrom,resiTo:reg.resiTo,
+        numFrom:c.numbers[reg.s]||'',numTo:c.numbers[reg.e]||'',
+        len:reg.keys.length,seq:reg.seq});
+    }
+  }
+  return rows;
+}
+function candTableHTML(ab){
+  if(!ab.cands||!ab.cands.length) return '';
+  const cols=[
+    {key:'chain',label:'链'},
+    {key:'kindLabel',label:'判定',render:r=>r.kind==='H'?'重链 VH':(r.kind==='L'?'轻链 VL':'—')},
+    {key:'score',label:'锚点评分',num:true,html:true,render:r=>fmt(r.score,1)},
+    {key:'ok',label:'是否采用',html:true,sortVal:r=>r.score,
+      render:r=>r.score>=AB_MIN_SCORE
+        ?'<span style="color:var(--ok);font-weight:600">已采用</span>'
+        :'<span class="mini">低于阈值 '+AB_MIN_SCORE+'</span>'}
+  ];
+  return cardHTML('候选链锚点评分',tableHTML(cols,ab.cands,{sortKey:'score'}),{flush:true});
+}
+function heatmapHTML(hm){
+  const ep=hm.epitope, pa=hm.paratope, m=hm.m;
+  if(!ep.length||!pa.length)
+    return emptyHTML('无法生成接触热图','需要同时存在互补位（抗体侧）与表位（抗原侧）残基。');
+  const lab=hm.labelOf;
+  const colHead=pa.map(r=>'<div class="hmcolhead" title="'+esc(lab(r)+' · '+(r.region||''))+'">'+
+    esc(lab(r))+'</div>').join('');
+  const body=ep.map((er,i)=>{
+    const cells=pa.map((pr,j)=>{
+      const v=m.matrix[i][j];
+      const a=v?(0.08+0.92*(v/m.max)).toFixed(2):0;
+      return '<div class="hmcell" data-v="'+v+'" data-r="'+esc(lab(er))+'" data-c="'+esc(lab(pr))+'"'+
+        ' title="'+esc(lab(er)+' × '+lab(pr)+'：'+v)+'"'+
+        (v?' style="background:rgba(59,111,212,'+a+')"':' style="background:#f1f4f9"')+'></div>';
+    }).join('');
+    return '<div class="hmrow"><div class="hmrowhead" title="'+esc(lab(er)+' · '+er.chain)+'">'+
+      esc(lab(er))+'</div>'+cells+'</div>';
+  }).join('');
+  return '<div class="hmwrap"><div class="hmgrid">'+
+    '<div class="hmrow"><div class="hmrowhead"></div>'+colHead+'</div>'+body+'</div></div>'+
+    '<div class="mini" id="hmTip" style="margin-top:7px">悬停色块查看该残基对的接触原子对数</div>'+
+    '<div class="mini" style="margin-top:4px">行 = 表位残基（按接触数降序），列 = 互补位残基（按链 / CDR 顺序）；'+
+    '颜色越深表示该残基对的接触原子对越多（最大值 '+m.max+'）。</div>';
+}
+function abSeqHTML(cid,ch){
+  const rs=ch.residues.slice(0,ch.vEnd+1);
+  if(!rs.length) return '';
+  const W=50;
+  let out='';
+  for(let s=0;s<rs.length;s+=W){
+    const part=rs.slice(s,s+W);
+    const last=Math.min(s+W,rs.length)-1;
+    out+='<div class="seg idx">链 '+esc(cid)+' 残基 '+(s+1)+'–'+(s+part.length)+
+      '　近似编号 '+esc(ch.numbers[s]||'')+' … '+esc(ch.numbers[last]||'')+'</div>';
+    out+='<div class="seg">'+part.map((r,i)=>{
+      const idx=s+i, num=ch.numbers[idx]||'';
+      const cls=r.abType==='cdr'?'cdr':(r.abRegion?'fr':'');
+      return '<span class="'+cls+'" title="链 '+esc(cid)+' · '+esc(aa1(r.resn)+r.resi)+
+        ' · '+esc(r.abRegion||'未标注')+(num?' · 近似编号 '+esc(num):'')+'">'+esc(aa1(r.resn))+'</span>';
+    }).join('')+'</div>';
+  }
+  return out;
+}
+function renderAntibody(ana){
+  const el=dom('pane-antibody'); if(!el) return;
+  const ab=ana.ab, sp=ana.split.summary;
+  if(!ab.hasAb){
+    el.innerHTML=
+      cardHTML('抗体识别',emptyHTML('未识别到抗体 V 区',
+        '识别条件：链内同时存在第 1 / 第 2 保守 Cys、FR2 保守 Trp（其后第 3 位为 R/K/Q/H）、'+
+        'FR4 的 F/W-G-x-G 基序，且长度不少于 80 个残基。<br>'+
+        '若为单域抗体（VHH）、纳米抗体或仅提供 Fv/Fab 片段，可在左侧手动填写 CDR 覆盖范围后重新分析。'))+
+      candTableHTML(ab)+
+      cardHTML('如何手动指定 CDR',tipsHTML([
+        '在左侧「重链 CDR-H3 起止」中按<b>结构文件残基编号</b>填写，例如 <code>95-102</code>。',
+        '或使用「覆盖全部」按 <code>H1:31-35,H2:50-65,H3:95-102,L1:24-34,L2:50-56,L3:89-97</code> 一次性指定。',
+        'CDR 之外的区段自动归入框架区（FR）。'
+      ]));
+    return;
+  }
+  const cdrRows=ana.cdrRows, sum=ana.cdrSummary;
+  const cols=[
+    {key:'chain',label:'链'},
+    {key:'label',label:'区段'},
+    {key:'typeLabel',label:'类型',html:true,sortVal:r=>r.type,
+      render:r=>'<span class="pill '+r.type+'">'+(r.type==='cdr'?'CDR':'FR')+'</span>'},
+    {key:'range',label:'结构编号',html:true,render:r=>esc(r.resiFrom)+'–'+esc(r.resiTo)},
+    {key:'len',label:'长度',num:true},
+    {key:'frac',label:'参与接触',num:true,html:true,sortVal:r=>r.nContact,
+      render:r=>r.nContact+' / '+r.nRes},
+    {key:'contacts',label:'接触原子',num:true},
+    {key:'dasa',label:'ΔASA (Å²)',num:true,html:true,render:r=>fmt(r.dasa,1)},
+    {key:'topScore',label:'最高热点分',num:true,html:true,render:r=>r.topScore?r.topScore.toFixed(1):'—'},
+    {key:'seq',label:'序列',render:r=>r.seq||'—'}
+  ];
+  const barRows=sum.map(r=>({
+    name:'链 '+r.chain+' · '+r.region,value:r.contacts,color:'var(--violet)',text:String(r.contacts),
+    title:r.region+'：参与接触残基 '+r.nContact+' / '+r.len+'（'+pctStr(r.frac)+'）· 接触原子 '+r.contacts
+  }));
+  const showSeq=dom('showCdrSeq')?dom('showCdrSeq').checked:false;
+  const seqCard=showSeq
+    ? cardHTML('CDR 划分与序列对照',
+        Object.keys(ab.chains).map(cid=>{
+          const c=ab.chains[cid];
+          return '<div class="sub">链 '+esc(cid)+' · '+(c.kind==='H'?'重链 VH':'轻链 VL')+' · 方案 '+esc(ab.schemeLabel)+'</div>'+
+            '<div class="seqbox" style="margin-top:5px">'+abSeqHTML(cid,c)+'</div>'+
+            '<div class="mini" style="margin-top:5px">CDR 序列：'+
+            ['CDR1','CDR2','CDR3'].map(k=>esc(k)+' <code>'+esc(c.cdrSeq[k]||'—')+'</code>').join('　')+'</div>';
+        }).join('<div class="divider" style="margin:11px 0"></div>')+
+        tableHTML([
+          {key:'chain',label:'链'},
+          {key:'label',label:'区段'},
+          {key:'range',label:'结构编号',html:true,render:r=>esc(r.resiFrom)+'–'+esc(r.resiTo)},
+          {key:'num',label:'近似编号',html:true,render:r=>(r.numFrom||'—')+'–'+(r.numTo||'—')},
+          {key:'len',label:'长度',num:true},
+          {key:'seq',label:'序列',render:r=>r.seq||'—'}
+        ],abRegionRows(ab),{sortKey:'len',tall:true}))
+    : cardHTML('CDR 划分与序列对照',
+        '<div class="mini">勾选左侧「在结果面板显示编号与序列对照」后，这里会给出各 CDR / FR 的结构编号、近似抗体编号与序列对照，'+
+        '并在序列中高亮 CDR 区段。</div>');
+  el.innerHTML=
+    kpiHTML([
+      {k:'重链 VH',v:esc(ab.vh||'—'),cls:'accent'},
+      {k:'轻链 VL',v:esc(ab.vl||'—'),cls:'accent'},
+      {k:'互补位残基',v:sp.nParatope},
+      {k:'其中位于 CDR',v:pctStr(sp.cdrFrac),cls:'violet'},
+      {k:'CDR 接触占比',v:pctStr(sp.cdrContactFrac),cls:'teal'},
+      {k:'互补位 / 表位',v:sp.nParatope+' / '+sp.nEpitope}
+    ])+
+    cardHTML('抗体链识别',kvHTML([
+      ['CDR 方案',esc(ab.schemeLabel),true],
+      ['判定依据',esc(ab.schemeNote),true],
+      ['重链 VH',esc(ab.vh||'未识别'),true],
+      ['轻链 VL',esc(ab.vl||'未识别'),true],
+      ['抗原链',sp.agChains.length?esc(sp.agChains.join(', ')):'—',true],
+      ['互补位（重 / 轻）',sp.nHeavy+' / '+sp.nLight],
+      ['抗体–抗体模式',sp.mode==='ab-ab'?'是（仅抗体链被选中，退化为重轻链界面分析）':'否',true]
+    ])+(ab.notes.length?'<div class="note" style="margin-top:9px">'+ab.notes.map(esc).join('<br>')+'</div>':''))+
+    candTableHTML(ab)+
+    cardHTML('CDR / FR 贡献表',
+      tableHTML(cols,cdrRows,{sortKey:'contacts',tall:true}),
+      {flush:true})+
+    (barRows.length?cardHTML('CDR 长度与接触强度',barsHTML(barRows)+
+      '<div class="mini" style="margin-top:6px">数值为该 CDR 的接触原子对总数；悬停条目可查看参与接触的残基比例。'+
+      '参与接触残基比例低而接触数高，说明少数残基承担了主要结合能，是典型的「热点驱动」界面。</div>'):'')+
+    cardHTML('接触热图（表位 × 互补位）',heatmapHTML(ana.heatmap))+
+    seqCard;
+}
+
+/* ---- 8.9 标签页五：埋藏面积 ---- */
+function dasaBarsHTML(ana){
+  const d=ana.dasa;
+  if(!d||!d.size) return '';
+  const rows=[];
+  for(const [k,v] of d){
+    if(!(v>0.5)) continue;
+    const r=ana.view.resMap.get(k);
+    const lbl=r?(aa1(r.resn)+r.resi+':'+r.chain):k;
+    rows.push({name:lbl,value:v,color:'var(--violet)',text:v.toFixed(1),title:lbl+' · ΔASA '+v.toFixed(1)+' Å²'});
+  }
+  rows.sort((a,b)=>b.value-a.value);
+  return barsHTML(rows.slice(0,15),{d:1});
+}
+function renderArea(ana){
+  const el=dom('pane-area'); if(!el) return;
+  const res=ana.bsa, s=ana.summary, ap=ana.abPair;
+  if(!res||!res.groups.length){
+    el.innerHTML=cardHTML('埋藏面积',emptyHTML('尚未计算埋藏面积','请点击左侧「计算 SASA / BSA / ΔASA」。'));
+    return;
+  }
+  const sumSasa=res.groups.reduce((a,g)=>a+g.sasa,0);
+  const dASA=ap?(ap.sasaA+ap.sasaB-ap.sasaAB):0;
+  el.innerHTML=
+    kpiHTML([
+      {k:'分组 SASA 合计',v:fmt(sumSasa,0),u:'Å²'},
+      {k:'复合物 SASA',v:fmt(res.complexSasa,0),u:'Å²',cls:'teal'},
+      {k:'BSA',v:fmt(ap?ap.bsa:0,0),u:'Å²',cls:'accent'},
+      {k:'ΔASA',v:fmt(dASA,0),u:'Å²',cls:'violet'},
+      {k:'埋藏比例',v:sumSasa?pctStr(dASA/sumSasa):'—'},
+      {k:'采样点数',v:res.nPts||'—',u:'probe '+fmt(res.probe||1.4,1)+' Å'}
+    ])+
+    cardHTML('分组 SASA',tableHTML([
+      {key:'name',label:'分组'},
+      {key:'chains',label:'链',html:true,render:r=>esc((r.chains||[]).join(', '))},
+      {key:'nAtoms',label:'重原子数',num:true},
+      {key:'sasa',label:'SASA (Å²)',num:true,html:true,render:r=>fmt(r.sasa,1)}
+    ],res.groups,{sortKey:'sasa'}),{flush:true})+
+    cardHTML('链对埋藏面积',tableHTML([
+      {key:'pair',label:'链对',html:true,render:r=>esc(r.aName+' – '+r.bName)},
+      {key:'sasaA',label:'SASA A (Å²)',num:true,html:true,render:r=>fmt(r.sasaA,1)},
+      {key:'sasaB',label:'SASA B (Å²)',num:true,html:true,render:r=>fmt(r.sasaB,1)},
+      {key:'sasaAB',label:'SASA AB (Å²)',num:true,html:true,render:r=>fmt(r.sasaAB,1)},
+      {key:'bsa',label:'BSA (Å²)',num:true,html:true,render:r=>fmt(r.bsa,1)},
+      {key:'d',label:'ΔASA 合计 (Å²)',num:true,sortVal:r=>r.sasaA+r.sasaB-r.sasaAB,
+        html:true,render:r=>fmt(r.sasaA+r.sasaB-r.sasaAB,1)},
+      {key:'n',label:'ΔASA 残基数',num:true,html:true,render:r=>r.dASA.size}
+    ],res.pairs,{sortKey:'bsa'}),{flush:true})+
+    (ana.dasa&&ana.dasa.size?cardHTML('逐残基 ΔASA Top 15',dasaBarsHTML(ana)+
+      '<div class="mini" style="margin-top:6px">ΔASA 为该残基在「分组单独存在」与「复合物」两种状态下的溶剂可及面积之差，'+
+      '是判断界面残基贡献的经典指标。</div>'):'')+
+    cardHTML('方法说明',tipsHTML([
+      '采用 <b>Shrake–Rupley</b> 数值积分法计算 SASA，探针半径 '+(res.probe||1.4)+' Å，原子半径取 Bondi 范德华半径。',
+      'BSA = (SASA<sub>A</sub> + SASA<sub>B</sub> − SASA<sub>AB</sub>) / 2；逐残基 ΔASA 之和等于 2 × BSA。',
+      '采样点数越高越精确但越慢，可在左侧切换（92 / 200 / 480）。',
+      '仅重原子参与计算，氢原子被忽略；勾选「把糖基/配体等非标准残基计入界面」会同时把它们纳入面积统计。'
+    ]));
+}
+
+/* 面板渲染分发表（renderCompare 由第 9 节定义） */
+const PANE_RENDER={overview:renderOverview,inter:renderInter,residues:renderResidues,
+  antibody:renderAntibody,area:renderArea,compare:renderCompare};
+
+/* =====================================================================================
+   9. 多结构对比
+   ===================================================================================== */
+const CMP_METRICS=[
+  {key:'bsa',          label:'BSA (Å²)',        get:s=>s.bsa,           d:1},
+  {key:'dASA',         label:'ΔASA (Å²)',       get:s=>s.dASA,          d:1},
+  {key:'nIfaceRes',    label:'界面残基数',      get:s=>s.nIfaceRes,     d:0},
+  {key:'nParatope',    label:'互补位残基数',    get:s=>s.nParatope,     d:0},
+  {key:'nEpitope',     label:'表位残基数',      get:s=>s.nEpitope,      d:0},
+  {key:'nInteractions',label:'相互作用组数',    get:s=>s.nInteractions, d:0},
+  {key:'cdrFracPct',   label:'CDR 占互补位 (%)',get:s=>100*s.cdrFrac,   d:1},
+  {key:'hotCount',     label:'核心热点数',      get:s=>s.hotCount,      d:0}
+];
+const CMP={metric:'bsa',onlyAb:false};
+
+function cmpAllRows(){
+  return APP.structures.filter(cx=>cx.ana).map(cx=>{
+    const s=cx.ana.summary;
+    return {cx,id:cx.id,name:cx.name,hasAb:s.hasAb,vh:s.vh,vl:s.vl,scheme:s.scheme,
+      nChains:s.chains.length,nIfaceRes:s.nIfaceRes,nParatope:s.nParatope,nEpitope:s.nEpitope,
+      nInteractions:s.nInteractions,bsa:s.bsa,dASA:s.dASA,hotCount:s.hotCount,
+      cdrFrac:s.cdrFrac,cdrFracPct:100*s.cdrFrac,focus:s.focus,
+      isCur:APP.cur&&cx.id===APP.cur.id};
+  });
+}
+function analyzeMissingStructures(){
+  const todo=APP.structures.filter(cx=>!cx.ana);
+  if(!todo.length){ toast('所有已载入结构都已有分析结果'); return; }
+  toast('正在分析 '+todo.length+' 个结构…');
+  setTimeout(()=>{
+    let ok=0,fail=0;
+    for(const cx of todo){
+      try{ cx.ana=analyzeAll(cx,currentCfg()); ok++; }catch(e){ fail++; console.warn('分析失败',cx.name,e); }
+    }
+    toast('完成：成功 '+ok+(fail?('，失败 '+fail):''));
+    if(APP.ana) renderPanels(APP.ana); else refreshPane();
+  },30);
+}
+function renderCompare(ana){
+  const el=dom('pane-compare'); if(!el) return;
+  const total=APP.structures.length;
+  const head='<div class="panehead"><div class="sp mini">已载入 '+total+' 个结构</div>'+
+    (APP.structures.some(cx=>!cx.ana)?'<button class="btn sm primary" id="cmpAnalyzeAll">分析全部结构</button>':'')+
+    '</div>';
+  if(total<1){
+    el.innerHTML=head+cardHTML('多结构对比',emptyHTML('尚未载入任何结构',
+      '在顶栏输入 PDB ID 下载，或把多个 PDB / mmCIF 文件一起拖入左侧「载入结构」区域。'));
+    return;
+  }
+  const all=cmpAllRows();
+  const rows=CMP.onlyAb?all.filter(r=>r.hasAb):all;
+  if(!all.length){
+    el.innerHTML=head+cardHTML('多结构对比',emptyHTML('还没有可对比的分析结果',
+      '多结构对比使用每个结构自己的分析结果。点击上方「分析全部结构」按当前参数（CDR 方案、接触截断、SASA 采样点、热点权重）批量计算。'));
+    return;
+  }
+  const met=CMP_METRICS.find(m=>m.key===CMP.metric)||CMP_METRICS[0];
+  const barRows=rows.map(r=>{
+    const v=met.get(r.cx.ana.summary);
+    return {name:r.name+(r.isCur?'（当前）':''),value:v||0,
+      color:r.isCur?'var(--violet)':'var(--accent)',
+      text:(met.d?fmt(v,met.d):String(v||0)),
+      title:r.name+' · '+met.label+'：'+(met.d?fmt(v,met.d):String(v||0))};
+  }).sort((a,b)=>b.value-a.value);
+  const cols=[
+    {key:'name',label:'结构',html:true,
+      render:r=>(r.isCur?'<b style="color:var(--accent)">'+esc(r.name)+'</b>':esc(r.name))},
+    {key:'nChains',label:'链数',num:true},
+    {key:'ab',label:'抗体 V 区',html:true,render:r=>r.hasAb?('VH '+esc(r.vh||'—')+' / VL '+esc(r.vl||'—')):'<span class="mini">未识别</span>'},
+    {key:'scheme',label:'CDR 方案',render:r=>r.hasAb?(r.scheme||'—'):'—'},
+    {key:'nIfaceRes',label:'界面残基',num:true},
+    {key:'nParatope',label:'互补位',num:true},
+    {key:'nEpitope',label:'表位',num:true},
+    {key:'nInteractions',label:'相互作用',num:true},
+    {key:'bsa',label:'BSA (Å²)',num:true,html:true,render:r=>fmt(r.bsa,1)},
+    {key:'dASA',label:'ΔASA (Å²)',num:true,html:true,render:r=>fmt(r.dASA,1)},
+    {key:'hotCount',label:'核心热点',num:true},
+    {key:'act',label:'操作',html:true,sortVal:r=>r.isCur?1:0,
+      render:r=>r.isCur?'<span class="mini">当前</span>':
+        '<span class="chipbtn" data-cxsel="'+esc(r.id)+'">切换到该结构</span>'}
+  ];
+  el.innerHTML=head+
+    cardHTML('对比指标',`<div class="toolrow">${CMP_METRICS.map(m=>
+      '<span class="chipbtn'+(m.key===CMP.metric?' on':'')+'" data-metric="'+m.key+'">'+esc(m.label)+'</span>').join('')}</div>`+
+      `<label class="ck" style="margin-top:6px"><input type="checkbox" id="cmpOnlyAb"${CMP.onlyAb?' checked':''}>只对比识别到抗体 V 区的结构</label>`)+
+    cardHTML('指标对比 · '+met.label,
+      barRows.length?barsHTML(barRows,{max:null}):emptyHTML('无可用数据'),
+      {right:'<span class="mini">共 '+barRows.length+' 个结构</span>'})+
+    cardHTML('结构指标总表',tableHTML(cols,rows,{sortKey:'bsa',tall:true}),{flush:true})+
+    cardHTML('对比说明',tipsHTML([
+      '对比仅使用各结构<b>各自保存的分析结果</b>。若某个结构尚未分析，可点击上方按钮批量计算。',
+      '为保证可比性，批量计算会统一使用<b>当前界面参数</b>（接触截断、氢键判据、SASA 采样点、热点权重、CDR 方案）。',
+      '若各结构载入后曾用不同参数分析过，建议先点「分析全部结构」刷新一遍再对比。',
+      'BSA / ΔASA 受采样点数影响，跨结构比较时应保证采样点数一致。'
+    ]));
+}
+function initCompareEvents(){
+  __addDoc('click',ev=>{
+    const m=ev.target.closest('.chipbtn[data-metric]');
+    if(m){ CMP.metric=m.getAttribute('data-metric'); refreshPane(); return; }
+    const s=ev.target.closest('[data-cxsel]');
+    if(s){ activateComplex(s.getAttribute('data-cxsel')); return; }
+    if(ev.target.closest('#cmpAnalyzeAll')){ analyzeMissingStructures(); return; }
+  });
+  __addDoc('change',ev=>{
+    if(ev.target&&ev.target.id==='cmpOnlyAb'){ CMP.onlyAb=ev.target.checked; refreshPane(); }
+  });
+}
+
+/*__PART9_END__*/
+
+/* =====================================================================================
+   10. 导出与启动装配
+   ===================================================================================== */
+/* ---- 10.1 参数收集：把左侧控件状态汇总为一次分析的配置 ---- */
+APP.focus='abag';                    /* 默认聚焦「抗体–抗原界面」，无抗体时自动退回全部界面 */
+const DASA_MIN=1.0;                  /* ΔASA 界面定义阈值（Å²）：文献常用的界面残基判据 */
+function uiNum(id,d){ const e=document.getElementById(id); const x=e?parseFloat(e.value):NaN; return isFinite(x)?x:d; }
+function uiVal(id,d){ const e=document.getElementById(id); return e?e.value:d; }
+function uiChk(id,d){ const e=document.getElementById(id); return e?!!e.checked:!!d; }
+function currentCfg(){
+  return {
+    iface:{cutoff:uiNum('cutoff',4.5), hbondMode:uiVal('hbondMode','geom'),
+      addH:uiChk('addH',true), includeHet:uiChk('includeHet',false),
+      mode:uiVal('ifaceMode','dist'), dasaMin:DASA_MIN},
+    scheme:uiVal('abScheme','kabat'), ovH3:uiVal('ovH3','')||'', ovAll:uiVal('ovAll','')||'',
+    focus:APP.focus||'abag',
+    nPts:parseInt(uiVal('sasaPoints','200'),10)||200, probe:1.4,
+    hotspot:{coreFrac:0.1, w:{contact:uiNum('wContact',0.35), dasa:uiNum('wDasa',0.35),
+      hbond:uiNum('wHbond',0.20), cdr:uiNum('wCdr',0.10)}}
+  };
+}
+function updateParamHints(){
+  const ci=document.getElementById('cutoffInfo');
+  if(ci){
+    const cut=uiNum('cutoff',4.5), mode=uiVal('ifaceMode','dist');
+    ci.innerHTML=mode==='dasa'
+      ? '界面残基需满足：存在重原子接触 <b>且</b> 逐残基 ΔASA ≥ <b>'+DASA_MIN+' Å²</b>（接触截断 '+cut.toFixed(1)+' Å）'
+      : '当前：任意重原子间距离 ≤ <b>'+cut.toFixed(1)+' Å</b> 记为界面接触';
+  }
+  const si=document.getElementById('sasaInfo');
+  if(si){
+    const n=parseInt(uiVal('sasaPoints','200'),10)||200;
+    si.innerHTML='采用 Shrake–Rupley 数值法（'+n+' 点/原子），探针半径 1.4 Å，Bondi 原子半径。'+
+      'BSA = (SASA<sub>A</sub> + SASA<sub>B</sub> − SASA<sub>AB</sub>) / 2。';
+  }
+}
+
+/* ---- 10.2 结构载入 ---- */
+function parseAtomsFromText(text,fmt){
+  if(!has3Dmol()) throw new Error('3Dmol.js 未加载，无法解析结构（请联网后刷新页面）');
+  const v=ensureViewer();
+  const m=v.addModel(text,/cif/i.test(fmt||'')?'cif':'pdb');
+  try{ return atomsFromModel(m); } finally{ v.removeModel(m); }
+}
+function fmtOfName(name){
+  const s=String(name||'').toLowerCase();
+  return /\.(cif|mmcif)$/.test(s)?'cif':'pdb';
+}
+function normName(name){
+  return String(name||'structure').replace(/\.[A-Za-z0-9]+$/,'').slice(0,64)||'structure';
+}
+/* 解析文本 → 结构对象 → 加入列表；activate=false 时不切换当前结构（批量载入用） */
+function addStructure(name,text,fmt,activate){
+  let atoms;
+  try{ atoms=parseAtomsFromText(text,fmt); }
+  catch(err){ toast('解析失败：'+((err&&err.message)||err),'err'); return null; }
+  if(!atoms||!atoms.length){ toast((name||'文件')+'：未解析出任何原子','err'); return null; }
+  const cx=makeComplex(normName(name),text,fmt,atoms);
+  if(!cx.residues.length){ toast((name||'文件')+'：没有可识别的氨基酸残基','err'); return null; }
+  if(!cx.chains.length){ toast((name||'文件')+'：未识别到链','err'); return null; }
+  APP.structures.push(cx);
+  if(activate!==false) activateComplex(cx.id);
+  else { renderCxList(); fillCxSelect(); }
+  return cx;
+}
+function readFileText(file){
+  return new Promise((res,rej)=>{
+    const fr=new FileReader();
+    fr.onload=()=>res(String(fr.result||''));
+    fr.onerror=()=>rej(fr.error||new Error('读取失败'));
+    fr.readAsText(file);
+  });
+}
+async function loadFiles(files){
+  const list=[...files]; if(!list.length) return;
+  let ok=0, last=null;
+  for(const f of list){
+    try{
+      const text=await readFileText(f);
+      if(!text.trim()){ toast(f.name+'：文件为空','warn'); continue; }
+      const cx=addStructure(f.name,text,fmtOfName(f.name),false);
+      if(cx){ ok++; last=cx; }
+    }catch(err){ toast(f.name+'：'+((err&&err.message)||err),'err'); }
+  }
+  if(last) activateComplex(last.id);
+  toast(ok?('已载入 '+ok+' 个结构'):'未载入任何结构',ok?'':'warn');
+}
+async function fetchPdb(id){
+  const pid=String(id||'').trim().toUpperCase();
+  if(!/^[0-9][A-Za-z0-9]{3}$/.test(pid)){ toast('请输入 4 位 PDB 编号，例如 3HFM','warn'); return; }
+  if(APP.structures.some(c=>c.name.toUpperCase()===pid)) toast(pid+' 已在结构列表中');
+  toast('正在从 RCSB 下载 '+pid+' …');
+  const urls=[['https://files.rcsb.org/download/'+pid+'.pdb','pdb'],
+              ['https://files.rcsb.org/download/'+pid+'.cif','cif']];
+  for(const [u,fmt] of urls){
+    try{
+      const r=await fetch(u);
+      if(!r.ok) continue;
+      const t=await r.text();
+      if(/^\s*<(!DOCTYPE|html)/i.test(t)) continue;
+      if(addStructure(pid,t,fmt)) { const el=document.getElementById('pdbId'); if(el) el.value=''; return; }
+      return;
+    }catch(err){ /* 尝试下一个地址 */ }
+  }
+  toast('下载 '+pid+' 失败：请检查网络，或改用本地文件载入','err');
+}
+
+/* ---- 10.3 结构列表与切换 ---- */
+function renderCxList(){
+  const box=document.getElementById('cxList'); if(!box) return;
+  const badge=document.getElementById('cxCount');
+  if(badge) badge.textContent=String(APP.structures.length);
+  if(!APP.structures.length){
+    box.innerHTML='<div class="mini">尚未载入结构。拖入 PDB / mmCIF 文件，或在上方输入 PDB 编号下载。</div>';
+    return;
+  }
+  box.innerHTML=APP.structures.map(cx=>{
+    const on=APP.cur&&cx.id===APP.cur.id;
+    const s=cx.ana?cx.ana.summary:null;
+    const tag=s?(s.nIfaceRes+' 界面残基'):'未分析';
+    return '<div class="cxitem'+(on?' on':'')+'" data-cx="'+esc(cx.id)+'">'+
+      '<span class="nm" title="'+esc(cx.name)+'">'+esc(cx.name)+'</span>'+
+      '<span class="tag">'+cx.chains.length+' 链 · '+esc(tag)+'</span>'+
+      '<span class="chipbtn" data-cxdel="'+esc(cx.id)+'" title="从列表移除">✕</span></div>';
+  }).join('');
+}
+function fillCxSelect(){
+  const sel=document.getElementById('cxSelect'); if(!sel) return;
+  if(!APP.structures.length){
+    sel.innerHTML='<option value="">未载入结构</option>'; sel.disabled=true; return;
+  }
+  sel.disabled=false;
+  sel.innerHTML=APP.structures.map(cx=>
+    '<option value="'+esc(cx.id)+'">'+esc(cx.name)+(cx.ana?'':'（未分析）')+'</option>').join('');
+  if(APP.cur) sel.value=APP.cur.id;
+}
+function clearPanesExcept(keep){
+  for(const n of PANE_ORDER){
+    if(n===keep) continue;
+    const el=document.getElementById('pane-'+n);
+    if(el) el.innerHTML='';
+  }
+}
+/* 切换当前结构：装载模型 → 渲染 → 若尚无分析结果则触发分析 */
+function activateComplex(id){
+  const cx=APP.structures.find(c=>c.id===id)||null;
+  APP.cur=cx; APP.ana=cx?cx.ana:null; APP.selRes=null;
+  VIEW.activeChain=null;
+  fillCxSelect(); renderCxList();
+  const rs=document.getElementById('residueSelect'); if(rs) rs.value='';
+  fillViewControls(cx);
+  updateAbSummary();
+  if(!cx){
+    clearViewer();
+    if(!APP.viewer) updateOverlays(null);
+    setEmptyHint(true);
+    clearPanesExcept('compare');
+    if(PANE_RENDER.compare) PANE_RENDER.compare(null);
+    updateIfaceStrip(null);
+    return;
+  }
+  setEmptyHint(false);
+  render3D({keepCamera:false});
+  if(cx.ana){ renderPanels(cx.ana); updateIfaceStrip(cx.ana); }
+  else { clearPanesExcept('compare'); runAnalysis(cx); }
+}
+function removeComplex(id){
+  const i=APP.structures.findIndex(c=>c.id===id);
+  if(i<0) return;
+  const wasCur=APP.cur&&APP.cur.id===id;
+  APP.structures.splice(i,1);
+  if(wasCur) activateComplex((APP.structures[i]||APP.structures[i-1]||{}).id||null);
+  else { renderCxList(); fillCxSelect(); if(CUR_PANE==='compare') refreshPane(); }
+}
+
+/* ---- 10.4 分析执行 ---- */
+let _anaTimer=0;
+function scheduleAnalyze(delay){
+  clearTimeout(_anaTimer);
+  _anaTimer=setTimeout(()=>runAnalysis(APP.cur,{sync:true}),delay==null?260:delay);
+}
+function runAnalysis(cx,opts){
+  opts=opts||{};
+  cx=cx||APP.cur;
+  if(!cx) return null;
+  if(!cx.selected.size){ toast('请至少勾选一条链后再分析','warn'); return null; }
+  const cfg=currentCfg();
+  const run=()=>{
+    let ana=null;
+    try{ ana=analyzeAll(cx,cfg); }
+    catch(err){ console.error(err); toast('分析失败：'+((err&&err.message)||err),'err'); return null; }
+    cx.ana=ana;
+    if(APP.cur&&APP.cur.id===cx.id){
+      APP.ana=ana;
+      renderPanels(ana);
+      updateIfaceStrip(ana);
+      fillViewControls(cx);
+      refresh3D();
+      updateAbSummary();
+    }
+    renderCxList(); fillCxSelect();
+    if(!opts.silent) toast('分析完成 · 界面 '+ana.view.nRes+' 残基 · 相互作用 '+
+      ana.view.interactions.length+' 组 · 耗时 '+ana.summary.time.total+' ms','ok');
+    return ana;
+  };
+  if(opts.sync) return run();
+  toast('正在分析 '+cx.name+' …','info');
+  setTimeout(run,30);
+  return null;
+}
+/* 左侧「抗体–抗原分析」区的文字摘要 */
+function updateAbSummary(){
+  const el=document.getElementById('abSummary'); if(!el) return;
+  const ana=APP.ana;
+  if(!ana){ el.textContent='尚未识别。点击上方按钮，工具会依据链内保守二硫键与框架区特征自动判定 VH / VL 并划分 CDR 与框架区。'; return; }
+  const ab=ana.ab, s=ana.summary;
+  if(!ab.hasAb){
+    el.innerHTML='<b>未识别到抗体 V 区</b>。需同时满足：第 1/第 2 保守 Cys、FR2 保守 Trp、FR4 的 F/W-G-x-G 基序。'+
+      (ab.cands.length?('候选链得分：'+ab.cands.map(c=>esc(c.chain)+'('+esc(c.kind)+' '+c.score+' 分)').join('、')+'。'):'');
+    return;
+  }
+  el.innerHTML='已识别抗体：'+(s.vh?('VH = 链 <b>'+esc(s.vh)+'</b>'):'—')+
+    (s.vl?('，VL = 链 <b>'+esc(s.vl)+'</b>'):'')+'；抗原链 '+
+    (s.agChains.length?esc(s.agChains.join(', ')):'—')+'。<br>CDR 方案 <b>'+esc(ab.schemeLabel)+'</b>；'+
+    '互补位 '+s.nParatope+' 残基（其中 CDR 占 '+pctStr(s.cdrFrac)+'），表位 '+s.nEpitope+' 残基。'+
+    (ab.notes.length?('<br>'+ab.notes.map(n=>esc(n)).join('<br>')):'');
+}
+
+/*__PART10A_END__*/
+
+/* ---- 10.5 导出：CSV / JSON / PNG ---- */
+function downloadText(filename,text,mime){
+  const blob=new Blob([text],{type:mime||'text/plain;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download=filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1500);
+}
+function csvCell(v){
+  const s=(v===null||v===undefined)?'':String(v);
+  return /[",\n\r]/.test(s)?('"'+s.replace(/"/g,'""')+'"'):s;
+}
+/* cols: [{label, get?(row)}] */
+function toCSV(cols,rows){
+  const head=cols.map(c=>csvCell(c.label)).join(',');
+  const body=(rows||[]).map(r=>cols.map(c=>csvCell(c.get?c.get(r):r[c.key])).join(','));
+  return '\ufeff'+[head].concat(body).join('\r\n')+'\r\n';
+}
+function ts(){
+  const d=new Date(), p=n=>String(n).padStart(2,'0');
+  return d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+'-'+p(d.getHours())+p(d.getMinutes());
+}
+function safeName(){
+  return String(APP.cur?APP.cur.name:'structure').replace(/[^\w.\-]+/g,'_')||'structure';
+}
+const EXPORT_CSV={
+  summary:()=>{
+    const s=APP.ana.summary, p=APP.ana.cfg;
+    const rows=[
+      ['结构名称',s.name],['聚焦范围',FOCUS_LABEL[s.focus]||s.focus],
+      ['选定链',s.chains.join(' ')],['识别到抗体',s.hasAb?'是':'否'],
+      ['抗体 VH 链',s.vh||''],['抗体 VL 链',s.vl||''],['CDR 方案',s.scheme],
+      ['抗原链',(s.agChains||[]).join(' ')],
+      ['界面残基数',s.nIfaceRes],['互补位残基数',s.nParatope],['表位残基数',s.nEpitope],
+      ['相互作用组数',s.nInteractions],['CDR 占互补位',pctStr(s.cdrFrac)],
+      ['CDR 接触占比',pctStr(s.cdrContactFrac)],['核心热点数',s.hotCount],
+      ['BSA (Å²)',s.bsa.toFixed(2)],['ΔASA (Å²)',s.dASA.toFixed(2)],
+      ['抗体组 SASA (Å²)',(s.sasaAb||0).toFixed(2)],['抗原组 SASA (Å²)',(s.sasaAg||0).toFixed(2)],
+      ['复合物 SASA (Å²)',(s.complexSasa||0).toFixed(2)],
+      ['参数·接触截断 (Å)',p.iface.cutoff],['参数·界面定义',p.iface.mode==='dasa'?('ΔASA ≥ '+p.iface.dasaMin+' Å²'):'距离截断'],
+      ['参数·氢键判据',p.iface.hbondMode==='geom'?'几何判据':'距离判据'],
+      ['参数·自动补氢',p.iface.addH?'是':'否'],['参数·含非标准残基',p.iface.includeHet?'是':'否'],
+      ['参数·SASA 采样点',p.nPts],['参数·热点权重',['接触 '+p.hotspot.w.contact,'ΔASA '+p.hotspot.w.dasa,
+        '氢键 '+p.hotspot.w.hbond,'CDR '+p.hotspot.w.cdr].join(' / ')],
+      ['计算耗时 (ms)',s.time.total]
+    ];
+    KIND_ORDER.forEach(k=>rows.push(['相互作用·'+KIND[k].name,(s.kindCount[k]||0)]));
+    return toCSV([{label:'项目',get:r=>r[0]},{label:'数值',get:r=>r[1]}],rows);
+  },
+  residues:()=>toCSV([
+    {label:'链',key:'chain'},{label:'残基',get:r=>r.aa+r.resi},
+    {label:'三字母',key:'resn'},{label:'近似编号',get:r=>r.number||''},
+    {label:'侧',get:r=>SIDE_LABEL[r.side]||r.side},{label:'抗体区域',get:r=>r.region||''},
+    {label:'接触原子对',key:'contacts'},{label:'伙伴残基数',key:'partners'},
+    {label:'最近距离(Å)',get:r=>r.minDist==null?'':r.minDist.toFixed(2)},
+    {label:'ΔASA(Å²)',get:r=>(r.dasa||0).toFixed(2)},
+    {label:'热点分',get:r=>(r.score||0).toFixed(1)},{label:'等级',get:r=>r.level||''},
+    {label:'排名',get:r=>r.rank||''},{label:'主要伙伴',get:r=>r.topPartner?r.topPartner.label:''},
+    {label:'作用类型',get:r=>Object.keys(r.kinds||{}).map(k=>KIND[k].name+'×'+r.kinds[k]).join(' ')}
+  ],APP.ana.residues),
+  inter:()=>toCSV([
+    {label:'类型',get:r=>KIND[r.kind].name},
+    {label:'链A',key:'chainA'},{label:'残基A',key:'resA'},
+    {label:'原子A',get:r=>r.kind==='pipi'?'环心':(r.atomA||'')},
+    {label:'链B',key:'chainB'},{label:'残基B',key:'resB'},
+    {label:'原子B',get:r=>r.kind==='pipi'?'环心':(r.atomB||'')},
+    {label:'距离(Å)',get:r=>r.dist.toFixed(2)},{label:'接触原子对',key:'nContact'},
+    {label:'说明',get:r=>interNote(r)}
+  ],APP.ana.view.interactions),
+  hot:()=>toCSV([
+    {label:'排名',key:'rank'},{label:'残基',get:r=>r.aa+r.resi},{label:'链',key:'chain'},
+    {label:'侧',get:r=>SIDE_LABEL[r.side]||r.side},{label:'抗体区域',get:r=>r.region||''},
+    {label:'热点分',get:r=>r.score.toFixed(1)},{label:'等级',key:'level'},
+    {label:'接触原子对',key:'contacts'},{label:'伙伴残基数',key:'partners'},
+    {label:'ΔASA(Å²)',get:r=>(r.dasa||0).toFixed(2)},
+    {label:'最近距离(Å)',get:r=>r.minDist==null?'':r.minDist.toFixed(2)},
+    {label:'作用类型',get:r=>Object.keys(r.kinds||{}).map(k=>KIND[k].name+'×'+r.kinds[k]).join(' ')}
+  ],APP.ana.hotspots.rows),
+  cdr:()=>toCSV([
+    {label:'链',key:'chain'},{label:'类型',get:r=>r.kind==='H'?'重链':'轻链'},
+    {label:'区段',key:'name'},{label:'区段类型',get:r=>r.type==='cdr'?'CDR':'FR'},
+    {label:'起始',key:'resiFrom'},{label:'结束',key:'resiTo'},{label:'序列',key:'seq'},
+    {label:'长度',key:'nRes'},{label:'参与接触残基数',key:'nContact'},
+    {label:'接触原子对',key:'contacts'},{label:'ΔASA 合计(Å²)',get:r=>r.dasa.toFixed(2)},
+    {label:'最高热点分',get:r=>r.topScore.toFixed(1)},
+    {label:'作用类型',get:r=>Object.keys(r.kinds||{}).map(k=>KIND[k].name+'×'+r.kinds[k]).join(' ')}
+  ],APP.ana.cdrRows),
+  compare:()=>{
+    const met=CMP_METRICS.find(m=>m.key===CMP.metric);
+    return toCSV([
+      {label:'结构',key:'name'},{label:'当前',get:r=>r.isCur?'是':''},
+      {label:'链数',key:'nChains'},{label:'抗体 VH',get:r=>r.vh||''},{label:'抗体 VL',get:r=>r.vl||''},
+      {label:'CDR 方案',key:'scheme'},{label:'界面残基数',key:'nIfaceRes'},
+      {label:'互补位残基数',key:'nParatope'},{label:'表位残基数',key:'nEpitope'},
+      {label:'相互作用组数',key:'nInteractions'},
+      {label:'BSA(Å²)',get:r=>r.bsa.toFixed(2)},{label:'ΔASA(Å²)',get:r=>r.dASA.toFixed(2)},
+      {label:'CDR 占互补位(%)',get:r=>r.cdrFracPct.toFixed(1)},{label:'核心热点数',key:'hotCount'}
+    ],cmpAllRows());
+  }
+};
+/* 完整分析结果 → 可序列化 JSON（Map 结构全部展开为数组） */
+function anaToJSON(){
+  const ana=APP.ana; if(!ana) return null;
+  const s=ana.summary, v=ana.view, sp=ana.split;
+  const resRec=r=>r?{residue:r.aa+r.resi,chain:r.chain,three:r.resn,number:r.number||null,
+    region:r.region||null,contacts:r.contacts,partners:r.partners,
+    minDist:r.minDist<1e8?+r.minDist.toFixed(2):null,chars:r.chars}:null;
+  return {
+    tool:'AbInterface X', schema:'abinterface-x/1', generated:new Date().toISOString(),
+    structure:{name:ana.cx.name,format:ana.cx.fmt,chains:ana.cx.chains.map(c=>({
+      id:c.id,residues:c.residues.length,atoms:c.nAtoms,role:c.role}))},
+    parameters:ana.cfg,
+    summary:s,
+    antibody:{hasAb:ana.ab.hasAb,vh:ana.ab.vh,vl:ana.ab.vl,scheme:ana.ab.schemeLabel,
+      schemeNote:ana.ab.schemeNote,antigen:ana.ab.antigen,notes:ana.ab.notes,
+      candidates:ana.ab.cands,
+      chains:Object.keys(ana.ab.chains).map(cid=>{
+        const c=ana.ab.chains[cid];
+        return {chain:cid,kind:c.kind,role:c.role,vEnd:c.vEnd,overrideUsed:c.overrideUsed,
+          cdrSeq:c.cdrSeq,
+          regions:c.regions.map(r=>({name:r.name,label:r.label,type:r.type,
+            resiFrom:r.resiFrom,resiTo:r.resiTo,seq:r.seq,nResidues:r.keys.length}))};
+      })},
+    interface:{cutoff:v.cutoff,hbondMode:v.hbondMode,enumRadius:v.enumR,chains:v.chains,
+      nResidues:v.nRes,kindCount:v.kindCount},
+    interactions:v.interactions.map(it=>({type:it.kind,typeName:KIND[it.kind].name,
+      chainA:it.chainA,residueA:it.resA,atomA:it.atomA||null,
+      chainB:it.chainB,residueB:it.resB,atomB:it.atomB||null,
+      distance:+it.dist.toFixed(2),contacts:it.nContact,note:interNote(it)})),
+    paratope:[...sp.paratope.values()].map(resRec),
+    epitope:[...sp.epitope.values()].map(resRec),
+    residues:ana.residues.map(r=>({chain:r.chain,residue:r.aa+r.resi,side:r.side,
+      region:r.region||null,contacts:r.contacts,partners:r.partners,
+      minDist:r.minDist==null?null:+r.minDist.toFixed(2),dASA:+(r.dasa||0).toFixed(2),
+      score:r.score,level:r.level||null,rank:r.rank||null,
+      kinds:r.kinds,chars:r.chars,topPartner:r.topPartner?r.topPartner.label:null})),
+    hotspots:{weights:ana.hotspots.weights,rows:ana.hotspots.rows.map(r=>({
+      rank:r.rank,residue:r.aa+r.resi,chain:r.chain,side:SIDE_LABEL[r.side]||r.side,
+      score:r.score,level:r.level,contacts:r.contacts,partners:r.partners,
+      dASA:+(r.dasa||0).toFixed(2),region:r.region||null,kinds:r.kinds}))},
+    cdrContribution:ana.cdrRows.map(r=>({chain:r.chain,region:r.label,name:r.name,
+      type:r.type,resiFrom:r.resiFrom,resiTo:r.resiTo,seq:r.seq,nResidues:r.nRes,
+      nContactResidues:r.nContact,contacts:r.contacts,dASA:+r.dasa.toFixed(2),
+      topScore:r.topScore,kinds:r.kinds})),
+    cdrSummary:ana.cdrSummary,
+    buriedArea:{probe:ana.bsa.probe,nPts:ana.bsa.nPts,complexSASA:+ana.bsa.complexSasa.toFixed(2),
+      groups:ana.bsa.groups.map(g=>({id:g.id,name:g.name,chains:g.chains,
+        atoms:g.nAtoms,sasa:+g.sasa.toFixed(2)})),
+      pairs:ana.bsa.pairs.map(p=>({a:p.a,b:p.b,aName:p.aName,bName:p.bName,
+        sasaA:+p.sasaA.toFixed(2),sasaB:+p.sasaB.toFixed(2),sasaAB:+p.sasaAB.toFixed(2),
+        bsa:+p.bsa.toFixed(2),dASA_total:+(p.sasaA+p.sasaB-p.sasaAB).toFixed(2)}))},
+    compositionFingerprint:{epitope:ana.fingerprint.epitope.rows,
+      paratope:ana.fingerprint.paratope.rows},
+    disclaimer:'相互作用判据与热点分均为几何/经验规则，用于排序与筛选，不是 ΔΔG 预测值。'
+  };
+}
+function exportData(kind){
+  if(kind==='png'){ closeModal(); exportPng(); return; }
+  const ana=APP.ana;
+  if(kind==='compare'){
+    if(APP.structures.filter(c=>c.ana).length<2){ toast('至少需要两个已分析的结构','warn'); return; }
+    downloadText('compare_'+ts()+'.csv',EXPORT_CSV.compare(),'text/csv;charset=utf-8');
+    closeModal(); toast('已导出多结构对比 CSV'); return;
+  }
+  if(!ana){ toast('尚无分析结果，请先载入并分析结构','warn'); return; }
+  const base=safeName()+'_'+ts();
+  const said={summary:'分析摘要',residues:'界面残基',inter:'相互作用',hot:'热点排序',cdr:'CDR·FR 贡献'};
+  if(kind==='json'){
+    downloadText(base+'_report.json',JSON.stringify(anaToJSON(),null,2),'application/json;charset=utf-8');
+  }else if(EXPORT_CSV[kind]){
+    downloadText(base+'_'+kind+'.csv',EXPORT_CSV[kind](),'text/csv;charset=utf-8');
+  }else return;
+  closeModal();
+  toast('已导出'+((said[kind]||'')+' ')+(kind==='json'?'JSON':'CSV'));
+}
+function openExportMenu(){
+  const ana=APP.ana;
+  const nReady=APP.structures.filter(c=>c.ana).length;
+  const item=(k,label,sub,dis)=>
+    '<button class="btn'+(dis?' ghost':'')+'" data-exp="'+k+'"'+(dis?' disabled':'')+
+    ' style="display:block;width:100%;text-align:left;padding:8px 10px">'+
+    '<span style="display:block">'+esc(label)+'</span>'+
+    '<span class="mini" style="display:block;margin-top:2px">'+esc(sub)+'</span></button>';
+  openModal('导出结果',
+    '<div style="display:flex;flex-direction:column;gap:7px">'+
+    (ana?'':'<div class="mini">当前结构尚无分析结果，请先载入并完成分析。</div>')+
+    item('summary','分析摘要 CSV','关键指标一览（当前结构）',!ana)+
+    item('residues','界面残基 CSV','逐残基接触数 / ΔASA / 热点分',!ana)+
+    item('inter','相互作用 CSV','全部跨链相互作用明细',!ana)+
+    item('hot','热点排序 CSV','热点候选打分与等级',!ana)+
+    item('cdr','CDR·FR 贡献 CSV','各区段的接触与埋藏贡献',!ana)+
+    item('json','完整分析 JSON','参数 + 抗体编号 + 界面 + 面积 + 指纹',!ana)+
+    item('compare','多结构对比 CSV','已分析结构的横向指标',nReady<2)+
+    item('png','3D 视图 PNG','当前视角截图',!ana)+
+    '</div>');
+}
+
+/* ---- 10.6 事件绑定 ---- */
+function initAppEvents(){
+  const on=(id,ev,fn)=>{ const e=document.getElementById(id); if(e) e.addEventListener(ev,fn); };
+  /* 载入：按钮 / 文件选择 / 拖拽 */
+  const pickFile=()=>{ const f=document.getElementById('fileInput'); if(f) f.click(); };
+  on('btnLoad','click',pickFile);
+  const fi=document.getElementById('fileInput');
+  if(fi) fi.addEventListener('change',ev=>{ loadFiles(ev.target.files); ev.target.value=''; });
+  const dz=document.getElementById('dropZone');
+  if(dz){
+    dz.addEventListener('click',pickFile);
+    dz.addEventListener('dragover',ev=>{ ev.preventDefault(); ev.stopPropagation(); dz.classList.add('over'); });
+    dz.addEventListener('dragleave',()=>dz.classList.remove('over'));
+    dz.addEventListener('drop',ev=>{
+      ev.preventDefault(); ev.stopPropagation();
+      dz.classList.remove('over');
+      if(ev.dataTransfer&&ev.dataTransfer.files) loadFiles(ev.dataTransfer.files);
+    });
+  }
+  __addDoc('dragover',ev=>ev.preventDefault());
+  __addDoc('drop',ev=>{
+    ev.preventDefault();
+    const d=document.getElementById('dropZone'); if(d) d.classList.remove('over');
+    if(ev.dataTransfer&&ev.dataTransfer.files&&ev.dataTransfer.files.length) loadFiles(ev.dataTransfer.files);
+  });
+  /* 下载 PDB */
+  on('btnFetch','click',()=>fetchPdb(uiVal('pdbId','')));
+  on('pdbId','keydown',ev=>{ if(ev.key==='Enter'){ ev.preventDefault(); fetchPdb(ev.target.value); } });
+  /* 结构管理 */
+  on('btnRename','click',()=>{
+    if(!APP.cur){ toast('尚未载入结构','warn'); return; }
+    const n=window.prompt('结构名称',APP.cur.name);
+    if(n==null) return;
+    const t=String(n).trim(); if(!t) return;
+    APP.cur.name=t;
+    fillCxSelect(); renderCxList(); updateOverlays(APP.cur);
+    if(CUR_PANE==='overview'||CUR_PANE==='compare') refreshPane();
+  });
+  on('btnRemove','click',()=>{
+    if(!APP.cur){ toast('尚未载入结构','warn'); return; }
+    if(!window.confirm('从列表中移除「'+APP.cur.name+'」？')) return;
+    removeComplex(APP.cur.id);
+  });
+  on('cxSelect','change',ev=>{ if(ev.target.value) activateComplex(ev.target.value); });
+  const cl=document.getElementById('cxList');
+  if(cl) cl.addEventListener('click',ev=>{
+    const del=ev.target.closest('[data-cxdel]');
+    if(del){ const id=del.getAttribute('data-cxdel'); const cx=APP.structures.find(c=>c.id===id);
+      if(cx&&window.confirm('从列表中移除「'+cx.name+'」？')) removeComplex(id);
+      return; }
+    const item=ev.target.closest('[data-cx]');
+    if(item) activateComplex(item.getAttribute('data-cx'));
+  });
+  /* 界面参数：滑块即时更新提示，松开后再重算 */
+  on('cutoff','input',()=>updateParamHints());
+  on('cutoff','change',()=>{ updateParamHints(); scheduleAnalyze(); });
+  on('ifaceMode','change',()=>{ updateParamHints(); if(APP.ana) scheduleAnalyze(); });
+  ['hbondMode','addH','includeHet','sasaPoints'].forEach(id=>
+    on(id,'change',()=>{ updateParamHints(); if(APP.ana) scheduleAnalyze(); }));
+  /* CDR 方案与手工覆盖 */
+  on('abScheme','change',()=>{ if(APP.ana) scheduleAnalyze(120); });
+  on('ovH3','keydown',ev=>{ if(ev.key==='Enter'){ ev.preventDefault(); if(APP.cur) runAnalysis(APP.cur,{sync:true}); } });
+  on('ovAll','keydown',ev=>{ if(ev.key==='Enter'){ ev.preventDefault(); if(APP.cur) runAnalysis(APP.cur,{sync:true}); } });
+  on('btnApplyOv','click',()=>{
+    if(!APP.cur){ toast('尚未载入结构','warn'); return; }
+    runAnalysis(APP.cur,{sync:true});
+  });
+  on('btnDetectAb','click',()=>{
+    if(!APP.cur){ toast('尚未载入结构','warn'); return; }
+    const ana=runAnalysis(APP.cur,{sync:true,silent:true});
+    if(!ana) return;
+    if(ana.ab.hasAb) toast('已识别 VH 链 '+(ana.summary.vh||'—')+' · VL 链 '+(ana.summary.vl||'—'));
+    else toast('未识别到抗体 V 区，可在下方手动指定 CDR 范围或检查链是否完整','warn');
+    if(CUR_PANE!=='antibody') setPane('antibody'); else refreshPane();
+  });
+  on('btnCalcSasa','click',()=>{
+    if(!APP.cur){ toast('尚未载入结构','warn'); return; }
+    runAnalysis(APP.cur,{sync:true});
+    if(CUR_PANE!=='area') setPane('area');
+  });
+  /* 热点权重 */
+  const wmap=[['wContact','vContact'],['wDasa','vDasa'],['wHbond','vHbond'],['wCdr','vCdr']];
+  for(const [sid,vid] of wmap){
+    const s=document.getElementById(sid), v=document.getElementById(vid);
+    if(!s) continue;
+    const sync=()=>{ if(v) v.textContent=parseFloat(s.value).toFixed(2); };
+    s.addEventListener('input',sync);
+    s.addEventListener('change',()=>{ sync(); if(APP.ana) scheduleAnalyze(120); });
+  }
+  /* 其它联动 */
+  on('showTable','change',()=>updateIfaceStrip(APP.ana));
+  on('showCdrSeq','change',()=>refreshPane());
+  on('btnMenu','click',openExportMenu);
+  __addDoc('click',ev=>{
+    const b=ev.target.closest('[data-exp]');
+    if(b&&!b.disabled) exportData(b.getAttribute('data-exp'));
+    if(ev.target.closest('#modalClose')) closeModal();
+  });
+  __addDoc('keydown',ev=>{
+    if(ev.key==='Escape') closeModal();
+  });
+}
+
+/* ---- 10.7 启动 ---- */
+let HINT_HTML='';   /* 空状态提示的原始内容，引擎延迟就绪后用于还原 */
+function boot(){
+  initViewControls();
+  initPanelEvents();
+  initResidueFilterEvents();
+  initCompareEvents();
+  initAppEvents();
+  updateParamHints();
+  renderCxList(); fillCxSelect();
+  clearPanesExcept('compare');
+  setPane('overview');
+  if(PANE_RENDER.compare) PANE_RENDER.compare(null);
+  updateAbSummary();
+  updateIfaceStrip(null);
+  updateOverlays(null);
+  setEmptyHint(true);
+  if(!has3Dmol()){
+    /* 引擎可能仍在镜像链上加载：先不报错，等 __molReady 落定后再决定 */
+    const hint=document.getElementById('emptyHint');
+    if(hint) HINT_HTML=hint.innerHTML;
+    if(window.__molReady){
+      toast('正在加载 3D 引擎…','info');
+      window.__molReady.then(function(ok){
+        if(ok&&has3Dmol()){
+          if(hint) hint.innerHTML=HINT_HTML;
+          setEmptyHint(!APP.cur);
+          if(APP.cur) activateComplex(APP.cur.id);
+          toast('3D 引擎已就绪','ok');
+        } else showEngineMissing();
+      });
+    } else showEngineMissing();
+  }
+}
+function showEngineMissing(){
+  toast('3Dmol.js 未加载：结构解析与 3D 显示需要联网，请联网后刷新页面','warn');
+  const eh=document.getElementById('emptyHint');
+  if(eh) eh.innerHTML='<div><div class="big">3D 引擎未加载</div>'+
+    '本工具的 3D 显示与结构解析依赖 3Dmol.js，请联网后刷新页面。<br>'+
+    '全部计算仍在本机浏览器内完成，结构文件不会被上传。</div>';
+}
+boot();
+
+}

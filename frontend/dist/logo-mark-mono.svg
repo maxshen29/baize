@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="白泽">
+  <!-- 单色变体：继承 currentColor，用于深色底 / 单色印刷 / 水印 -->
+  <g fill="none" stroke="currentColor" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M29 10.5 L22.3 17"/>
+    <rect x="20.6" y="16.8" width="22.8" height="25.2" rx="5.2"/>
+    <path d="M20.6 29.4 L43.4 29.4"/>
+  </g>
+  <circle cx="32" cy="35.6" r="3.5" fill="currentColor"/>
+  <path d="M13 49.6 C20 45.8 26 53.2 32 49.6 C38 46 44 53.2 51 49.6"
+        fill="none" stroke="currentColor" stroke-opacity="0.55" stroke-width="2" stroke-linecap="round"/>
+</svg>

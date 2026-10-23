@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 420" font-family="'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif">
+  <rect width="820" height="420" fill="#f8fafc"/>
+  <text x="32" y="34" font-size="18" font-weight="700" fill="#0f172a">AI 应用市场总览（16 个应用）</text>
+  <text x="32" y="56" font-size="12" fill="#64748b">后端 backend/app/modules/* 提供 API，前端 views/modules/* 提供界面，按 app:code:use 权限开放</text>
+
+  <!-- group 1 学术工具 -->
+  <rect x="24" y="78" width="772" height="74" rx="12" fill="#ffffff" stroke="#10b981" stroke-width="1.5"/>
+  <text x="40" y="100" font-size="12" font-weight="700" fill="#047857">学术工具 · 8</text>
+  <g font-size="11" fill="#334155">
+    <text x="40" y="122">论文润色</text><text x="130" y="122">中英互译</text><text x="220" y="122">语法纠错</text><text x="310" y="122">审稿意见</text>
+    <text x="400" y="122">摘要与亮点</text><text x="510" y="122">代码解释</text><text x="600" y="122">文献综述</text><text x="700" y="122">概念讲解</text>
+    <text x="40" y="142" font-size="10" fill="#94a3b8">academic_polish · academic_translate · academic_grammar · academic_review</text>
+    <text x="40" y="156" font-size="10" fill="#94a3b8">academic_abstract · academic_code · academic_survey · academic_explain</text>
+  </g>
+
+  <!-- group 2 论文 -->
+  <rect x="24" y="164" width="772" height="56" rx="12" fill="#ffffff" stroke="#06b6d4" stroke-width="1.5"/>
+  <text x="40" y="186" font-size="12" font-weight="700" fill="#0e7490">论文 · 2</text>
+  <text x="40" y="208" font-size="11" fill="#334155">综合论文编写 (paper_writer) ｜ 综合论文阅读 (paper_reader)</text>
+
+  <!-- group 3 内容创作 -->
+  <rect x="24" y="232" width="772" height="56" rx="12" fill="#ffffff" stroke="#8b5cf6" stroke-width="1.5"/>
+  <text x="40" y="254" font-size="12" font-weight="700" fill="#6d28d9">内容创作 · 2</text>
+  <text x="40" y="276" font-size="11" fill="#334155">AI 方案生成 (scheme) ｜ AI 文档提炼 (digest)</text>
+
+  <!-- group 4 数据分析 -->
+  <rect x="24" y="300" width="772" height="56" rx="12" fill="#ffffff" stroke="#f59e0b" stroke-width="1.5"/>
+  <text x="40" y="322" font-size="12" font-weight="700" fill="#b45309">数据分析 · 2</text>
+  <text x="40" y="344" font-size="11" fill="#334155">AI 数据分析 (data-analytics) ｜ 蛋白质界面分析 (protein-analysis)</text>
+
+  <!-- group 5 对话与推演 -->
+  <rect x="24" y="368" width="772" height="40" rx="12" fill="#ffffff" stroke="#0d9488" stroke-width="1.5"/>
+  <text x="40" y="392" font-size="12" font-weight="700" fill="#0f766e">对话与推演 · 2</text>
+  <text x="220" y="392" font-size="11" fill="#334155">AI 对话 (chat) ｜ 社会推演 · 数字沙盘 (social_sim)</text>
+</svg>

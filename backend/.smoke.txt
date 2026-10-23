@@ -1,0 +1,4 @@
+REGISTER_OK mods=3 perms=['analytics:dataset:read', 'analytics:dataset:write', 'analytics:chart:read', 'protein:analysis:read', 'protein:analysis:run', 'scheme:plan:read', 'scheme:plan:write', 'scheme:template:read', 'scheme:knowledge:read', 'app:data-analytics:use', 'app:protein-analysis:use', 'app:scheme:use']
+data-analytics status=enabled entry=/apps/data-analytics
+protein-analysis status=enabled entry=/apps/protein-analysis
+scheme status=enabled entry=/apps/scheme

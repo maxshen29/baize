@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>03 · 自动识别抗体与 CDR</title>
+<style>
+  :root{--bg:#f4f6fb;--card:#fff;--ink:#152238;--ink2:#3c4a63;--muted:#7b8aa3;
+    --accent:#3b6fd4;--violet:#7c5cd6;--teal:#0f9aa8;--orange:#d9822b;--line:#e6ecf5;
+    --c1:#f0564a;--c2:#eda52f;--c3:#9d6be0;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:"Segoe UI","Microsoft YaHei","PingFang SC",system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;line-height:1.85;}
+  .wrap{max-width:720px;margin:0 auto;background:var(--card);min-height:100vh;
+    box-shadow:0 0 40px rgba(21,34,56,.06);padding:0 0 60px;}
+  .topbar{padding:14px 22px;background:#fff;border-bottom:1px solid var(--line);
+    font-size:12px;color:var(--muted);display:flex;gap:8px;align-items:center}
+  .topbar b{color:var(--accent);font-weight:600}
+  .hero{padding:38px 28px 26px;background:linear-gradient(135deg,#3b6fd4,#7c5cd6);color:#fff}
+  .hero .kicker{font-size:12px;letter-spacing:3px;opacity:.85;margin:0 0 8px}
+  .hero h1{font-size:24px;margin:0 0 10px;font-weight:700;line-height:1.4}
+  .hero p{font-size:14px;opacity:.92;margin:0}
+  .body{padding:24px 26px 0}
+  h2{font-size:18px;margin:30px 0 12px;display:flex;align-items:center;gap:9px;color:var(--ink)}
+  h2 .bar{width:5px;height:17px;border-radius:3px;background:linear-gradient(var(--accent),var(--violet))}
+  h3{font-size:15px;margin:18px 0 8px;color:var(--ink)}
+  p.lead{font-size:14.5px;color:var(--ink2);margin:0 0 12px}
+  .card{border:1px solid var(--line);border-radius:12px;padding:16px;margin:14px 0;background:#fbfcfe}
+  .card h3{margin-top:0}
+  .note{font-size:12.5px;color:var(--muted);background:#f3f6fc;border-left:3px solid var(--accent);
+    border-radius:0 8px 8px 0;padding:10px 13px;margin:16px 0}
+  .pill{display:inline-flex;align-items:center;gap:6px;background:#eef2fb;color:var(--accent);
+    border-radius:20px;padding:3px 11px;font-size:12px;margin:2px 4px 2px 0}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;margin:8px 0}
+  th,td{border:1px solid var(--line);padding:7px 9px;text-align:center}
+  th{background:#f3f6fc;color:var(--ink2);font-weight:600}
+  td.l{text-align:left}
+  .scheme-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .sc{border:1px solid var(--line);border-radius:11px;padding:12px;background:#fff}
+  .sc b{font-size:14px;display:block;margin-bottom:4px}
+  .sc span{font-size:12px;color:var(--muted)}
+  .sc.kabat b{color:var(--accent)} .sc.chothia b{color:var(--violet)}
+  .sc.imgt b{color:var(--teal)} .sc.north b{color:var(--orange)}
+  .ov{display:flex;flex-direction:column;gap:9px}
+  .ovrow{border:1px solid var(--line);border-radius:10px;padding:11px 13px;background:#fff}
+  .ovrow b{font-size:13.5px}
+  .ovrow code{background:#eef2fb;color:var(--accent);border-radius:5px;padding:1px 6px;font-size:12px}
+  .footer{padding:22px 26px 0;color:var(--muted);font-size:12px;text-align:center}
+  svg{display:block;max-width:100%}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">系列 <b>AbInterface X 使用指南</b> · 第 3 / 6 篇 · <span>抗体与 CDR</span></div>
+  <div class="hero">
+    <p class="kicker">ANTIBODY &amp; CDR</p>
+    <h1>自动识别抗体与 CDR：四种定义方案怎么选</h1>
+    <p>从保守二硫键到框架区特征，工具自动判别 VH/VL；CDR 边界则给你 Kabat、Chothia、IMGT、North 四套口径。</p>
+  </div>
+
+  <div class="body">
+    <h2><span class="bar"></span>工具怎么「认出」抗体</h2>
+    <p class="lead">抗体可变区有四个高度保守的锚点。只要一条链同时具备，就很可能是一段抗体 V 区：</p>
+    <div class="card">
+      <svg viewBox="0 0 640 96" role="img" aria-label="四个保守锚点">
+        <g font-family="inherit" font-size="12.5" text-anchor="middle">
+          <rect x="20" y="30" width="600" height="34" rx="10" fill="#f3f6fc"/>
+          <g fill="#3b6fd4">
+            <circle cx="120" cy="47" r="9"/><circle cx="270" cy="47" r="9"/><circle cx="430" cy="47" r="9"/><circle cx="560" cy="47" r="9"/>
+          </g>
+          <text x="120" y="50" fill="#fff" font-weight="700" font-size="11">C</text>
+          <text x="270" y="50" fill="#fff" font-weight="700" font-size="11">W</text>
+          <text x="430" y="50" fill="#fff" font-weight="700" font-size="11">C</text>
+          <text x="560" y="50" fill="#fff" font-weight="700" font-size="11">W</text>
+          <text x="120" y="80" fill="#3c4a63" font-weight="600">第 1 保守 Cys</text>
+          <text x="270" y="80" fill="#3c4a63" font-weight="600">FR2 保守 Trp</text>
+          <text x="430" y="80" fill="#3c4a63" font-weight="600">第 2 保守 Cys</text>
+          <text x="560" y="80" fill="#3c4a63" font-weight="600">FR4 基序 F/W-G-x-G</text>
+        </g>
+      </svg>
+      <p style="font-size:12.5px;color:var(--muted);margin:6px 0 0">判定还会结合 V 区长度、二硫键跨度、FR2 侧链特征以及链末端是否延续恒定区来综合打分，同一角色只保留得分最高的链，分别记为 VH 与 VL。</p>
+    </div>
+
+    <h2><span class="bar"></span>四种 CDR 定义方案</h2>
+    <p class="lead">CDR（互补决定区）是抗体真正接触抗原的环。不同编号体系对 CDR 的<span class="pill">起止位置</span>定义不同，结论会随之改变——工具把这四套都内置了，下拉切换即可。</p>
+    <div class="scheme-grid">
+      <div class="sc kabat"><b>Kabat</b><span>教科书口径，H1 延伸到 FR2 保守 Trp 之前；编号 H/L 不同。</span></div>
+      <div class="sc chothia"><b>Chothia</b><span>按结构环定义，H1 较短；轻链与 Kabat 一致。</span></div>
+      <div class="sc imgt"><b>IMGT（精确）</b><span>唯一编号体系，锚点 23-Cys / 41-Trp / 104-Cys / 118-J-Trp，H/L 共用一套编号。</span></div>
+      <div class="sc north"><b>North</b><span>2011 环构象聚类口径，与 Chothia 环定义基本一致，差异主要在 H3（95–102）。</span></div>
+    </div>
+
+    <div class="card">
+      <h3>重链三个 CDR 在各方案下的区间（Kabat 编号示意）</h3>
+      <table>
+        <tr><th class="l">方案</th><th>CDR-H1</th><th>CDR-H2</th><th>CDR-H3</th><th>轻链差异</th></tr>
+        <tr><td class="l"><b>Kabat</b></td><td>31–35B</td><td>50–65</td><td>95–102</td><td>L1 24–34 / L2 50–56 / L3 89–97</td></tr>
+        <tr><td class="l"><b>Chothia</b></td><td>26–32</td><td>52–58</td><td>95–102</td><td>与 Kabat 的轻链一致</td></tr>
+        <tr><td class="l"><b>IMGT</b></td><td>27–38</td><td>56–65</td><td>105–117</td><td>H/L 共用 1–128 编号</td></tr>
+        <tr><td class="l"><b>North</b></td><td>26–32</td><td>52–56</td><td>95–102</td><td>与 Chothia 完全一致</td></tr>
+      </table>
+      <p style="font-size:12px;color:var(--muted);margin:6px 0 0">注：各方案的「26/27 号」指向结构里同一段环，只是编号起点不同。工具的 IMGT 模式已采用<span style="color:var(--teal);font-weight:600">精确锚点定义</span>并输出 IMGT 唯一编号，而非近似编号。</p>
+    </div>
+
+    <div class="card">
+      <h3>一个抗体 V 区的样子</h3>
+      <svg viewBox="0 0 640 130" role="img" aria-label="抗体 V 区 FR/CDR 分区示意">
+        <defs>
+          <linearGradient id="vh" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3b6fd4"/><stop offset="1" stop-color="#7c5cd6"/></linearGradient>
+        </defs>
+        <!-- FR1 -->
+        <rect x="20" y="45" width="80" height="40" rx="6" fill="#9fb3cf"/>
+        <rect x="100" y="42" width="60" height="46" rx="6" fill="#f0564a"/>
+        <rect x="160" y="45" width="80" height="40" rx="6" fill="#9fb3cf"/>
+        <rect x="240" y="42" width="60" height="46" rx="6" fill="#eda52f"/>
+        <rect x="300" y="45" width="80" height="40" rx="6" fill="#9fb3cf"/>
+        <rect x="380" y="42" width="78" height="46" rx="6" fill="#9d6be0"/>
+        <rect x="458" y="45" width="80" height="40" rx="6" fill="#9fb3cf"/>
+        <rect x="538" y="45" width="82" height="40" rx="6" fill="#9fb3cf"/>
+        <g font-family="inherit" font-size="11.5" text-anchor="middle" fill="#fff" font-weight="600">
+          <text x="60" y="69">FR1</text><text x="130" y="69">CDR1</text><text x="200" y="69">FR2</text>
+          <text x="270" y="69">CDR2</text><text x="340" y="69">FR3</text><text x="419" y="69">CDR3</text>
+          <text x="578" y="69">FR4</text>
+        </g>
+        <g font-family="inherit" font-size="11" fill="#7b8aa3" text-anchor="middle">
+          <text x="130" y="104">环在表面、最易接触抗原</text>
+          <text x="419" y="104">最长、最多样 → 主要决定特异性</text>
+        </g>
+      </svg>
+    </div>
+
+    <h2><span class="bar"></span>识别不对？手动覆盖</h2>
+    <p class="lead">遇到链不完整、嵌合抗体或编号特殊导致自动识别失败时，可以手动指定：</p>
+    <div class="ov">
+      <div class="ovrow"><b>① 重链 CDR-H3 起止</b><br><span style="font-size:12.5px;color:var(--ink2)">在「重链 CDR-H3 起止」框填入，例如 <code>95-102</code>，留空则用自动结果。</span></div>
+      <div class="ovrow"><b>② 覆盖全部（KmCdr 文本）</b><br><span style="font-size:12.5px;color:var(--ink2)">按 <code>H1:31-35,H2:50-65,H3:95-102,L1:24-34,L2:50-56,L3:89-97</code> 格式填写，可一次性指定六个环。</span></div>
+      <div class="ovrow"><b>③ 显示编号与序列对照</b><br><span style="font-size:12.5px;color:var(--ink2)">勾选「在结果面板显示编号与序列对照」，把每个 CDR/FR 的残基编号与氨基酸序列并列查看，方便核对。</span></div>
+    </div>
+
+    <div class="note">📌 选方案没有绝对对错，关键是<span style="color:var(--accent);font-weight:600">同一批结构用同一套口径</span>。做环构象/聚类分析常用 North 或 Chothia；做数据库对齐、引用统一编号常用 IMGT；写教学材料常用 Kabat。下一篇讲相互作用类型，会用到这里的 CDR 划分结果。</div>
+  </div>
+
+  <div class="footer">AbInterface X · 蛋白质界面相互作用分析 · 抗体–抗原专用</div>
+</div>
+</body>
+</html>

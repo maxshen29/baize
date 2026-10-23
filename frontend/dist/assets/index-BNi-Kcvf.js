@@ -1,0 +1,1 @@
+import{A as e}from"./AcademicTool-C_5DOMfD.js";import{d as o,o as c,c as a}from"./index-CjP14Ny6.js";const l=o({__name:"index",setup(r){return(t,d)=>(c(),a(e,{code:"academic_code",tool:"code",label:"代码解释",desc:"逐段讲解代码逻辑并给出关键注释建议",placeholder:"粘贴需要讲解的源代码…"}))}});export{l as default};

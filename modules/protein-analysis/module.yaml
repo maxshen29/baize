@@ -1,0 +1,32 @@
+code: protein-analysis
+name: 蛋白质界面分析
+version: 1.0.0
+description: 抗体/蛋白质界面相互作用、埋藏面积与热点分析单页应用（3D 可视化，PDB/CIF 加载）
+entry: /apps/protein-analysis
+api_prefix: /modules/protein-analysis
+icon: Histogram
+order: 20
+status: enabled
+maintainers:
+  - name: 蛋白质分析团队
+    email: protein@baize.local
+config_schema:
+  - key: pdb_mirror
+    label: PDB 镜像源
+    type: select
+    options: [rcsb, pdbj, elsppdb]
+    default: rcsb
+  - key: default_chain_color
+    label: 默认链颜色
+    type: string
+    default: "#409EFF"
+dependencies: []
+permissions:
+  - code: protein:analysis:read
+    name: 查看分析结果
+    resource: /api/v1/modules/protein-analysis/results
+    action: read
+  - code: protein:analysis:run
+    name: 运行分析
+    resource: /api/v1/modules/protein-analysis/analyze
+    action: write

@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AbInterface X 使用指南 · 系列总览</title>
+<style>
+  :root{
+    --bg:#f4f6fb; --card:#fff; --ink:#152238; --ink2:#3c4a63; --muted:#7b8aa3;
+    --accent:#3b6fd4; --violet:#7c5cd6; --teal:#0f9aa8; --orange:#d9822b;
+    --c1:#f0564a; --c2:#eda52f; --c3:#9d6be0; --line:#e6ecf5;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:"Segoe UI","Microsoft YaHei","PingFang SC",system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;line-height:1.8;}
+  .wrap{max-width:720px;margin:0 auto;background:var(--card);min-height:100vh;
+    box-shadow:0 0 40px rgba(21,34,56,.06);padding:0 0 60px;}
+  .hero{padding:46px 30px 30px;background:linear-gradient(135deg,#3b6fd4,#7c5cd6);color:#fff;}
+  .hero .kicker{font-size:13px;letter-spacing:3px;opacity:.85;margin:0 0 10px}
+  .hero h1{font-size:28px;margin:0 0 14px;font-weight:700;line-height:1.35}
+  .hero p{font-size:14px;opacity:.92;margin:0}
+  .hero .badge{display:inline-block;margin-top:16px;background:rgba(255,255,255,.18);
+    border:1px solid rgba(255,255,255,.3);border-radius:20px;padding:4px 13px;font-size:12px}
+  .body{padding:26px 26px 0}
+  .sec-title{display:flex;align-items:center;gap:10px;margin:30px 0 14px;font-size:17px;font-weight:700;color:var(--ink)}
+  .sec-title .bar{width:5px;height:18px;border-radius:3px;background:linear-gradient(var(--accent),var(--violet))}
+  .lead{font-size:14.5px;color:var(--ink2)}
+  .card{border:1px solid var(--line);border-radius:12px;padding:16px 16px;margin:12px 0;background:#fbfcfe}
+  .toc{display:flex;flex-direction:column;gap:10px;margin-top:6px}
+  .toc a{display:flex;align-items:center;gap:13px;text-decoration:none;color:var(--ink);
+    border:1px solid var(--line);border-radius:12px;padding:13px 14px;background:#fff;transition:.15s}
+  .toc a:hover{border-color:#bcd2f4;background:#f5f8ff}
+  .toc .num{flex:none;width:30px;height:30px;border-radius:9px;display:grid;place-items:center;
+    font-weight:700;color:#fff;font-size:14px;background:linear-gradient(135deg,var(--accent),var(--violet))}
+  .toc .t{flex:1}
+  .toc .t b{font-size:14.5px}
+  .toc .t span{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+  .toc .arr{color:var(--muted);font-size:18px}
+  .feat{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px}
+  .feat .f{border:1px solid var(--line);border-radius:11px;padding:12px;background:#fff}
+  .feat .f .ic{width:30px;height:30px;border-radius:8px;background:var(--accent-soft,#e8effc);
+    display:grid;place-items:center;margin-bottom:8px}
+  .feat .f b{font-size:13.5px;display:block}
+  .feat .f span{font-size:11.5px;color:var(--muted)}
+  .note{font-size:12.5px;color:var(--muted);background:#f3f6fc;border-left:3px solid var(--accent);
+    border-radius:0 8px 8px 0;padding:10px 13px;margin:16px 0}
+  .footer{padding:22px 26px 0;color:var(--muted);font-size:12px;text-align:center}
+  svg{display:block;max-width:100%}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hero">
+    <p class="kicker">PROTEIN INTERFACE · 抗体–抗原专用</p>
+    <h1>AbInterface X 使用指南</h1>
+    <p>一套跑在浏览器里的蛋白质界面相互作用分析工具，专为抗体–抗原复合物设计。</p>
+    <span class="badge">图文系列 · 共 6 篇 · 零安装 · 单文件 HTML</span>
+  </div>
+
+  <div class="body">
+    <div class="sec-title"><span class="bar"></span>这套工具能帮你做什么</div>
+    <p class="lead">把「看 PDB 图 → 肉眼找接触 → 手算面积」的繁琐流程，变成一次载入、一键分析、可视化呈现。它面向抗体工程、结构免疫、抗体药物研发的同学，也适合教学演示。</p>
+
+    <div class="feat">
+      <div class="f"><div class="ic" style="background:#e8effc">🧬</div><b>载入即分析</b><span>拖入 PDB/mmCIF，或输 PDB ID 直接下载</span></div>
+      <div class="f"><div class="ic" style="background:#eef2ff">🔍</div><b>自动识别抗体</b><span>依保守二硫键与框架特征判定 VH/VL</span></div>
+      <div class="f"><div class="ic" style="background:#e9f7f8">🎯</div><b>四类 CDR 方案</b><span>Kabat / Chothia / IMGT / North</span></div>
+      <div class="f"><div class="ic" style="background:#fdeee2">⚛️</div><b>七类相互作用</b><span>氢键·盐桥·π–π·阳离子–π·二硫·疏水·水桥</span></div>
+      <div class="f"><div class="ic" style="background:#f3eafa">📐</div><b>面积与热点</b><span>SASA / BSA / ΔASA 与核心热点排序</span></div>
+      <div class="f"><div class="ic" style="background:#e8effc">📊</div><b>多结构对比</b><span>横向比较并一键导出 CSV / JSON</span></div>
+    </div>
+
+    <div class="sec-title"><span class="bar"></span>系列目录（建议按顺序阅读）</div>
+    <div class="toc">
+      <a href="01_开篇.html"><span class="num">1</span><span class="t"><b>开篇：为什么需要它</b><span>抗体–抗原界面分析的痛点与工具定位</span></span><span class="arr">›</span></a>
+      <a href="02_快速上手.html"><span class="num">2</span><span class="t"><b>3 分钟快速上手</b><span>从载入结构到看到第一个界面</span></span><span class="arr">›</span></a>
+      <a href="03_抗体与CDR.html"><span class="num">3</span><span class="t"><b>自动识别抗体与 CDR</b><span>四种定义方案怎么选、如何手动覆盖</span></span><span class="arr">›</span></a>
+      <a href="04_相互作用.html"><span class="num">4</span><span class="t"><b>读懂界面：七类相互作用</b><span>相互作用类型与界面残基筛选</span></span><span class="arr">›</span></a>
+      <a href="05_埋藏面积与热点.html"><span class="num">5</span><span class="t"><b>埋藏面积与热点</b><span>ΔASA、BSA 与核心热点排序</span></span><span class="arr">›</span></a>
+      <a href="06_多结构对比与导出.html"><span class="num">6</span><span class="t"><b>多结构对比与一键导出</b><span>横向比较并导出结果</span></span><span class="arr">›</span></a>
+    </div>
+
+    <div class="sec-title"><span class="bar"></span>工作流一览</div>
+    <div class="card">
+      <svg viewBox="0 0 660 150" role="img" aria-label="工具工作流">
+        <defs>
+          <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+            <path d="M0,0 L9,4.5 L0,9 z" fill="#9fb0c8"/>
+          </marker>
+          <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#3b6fd4"/><stop offset="1" stop-color="#7c5cd6"/>
+          </linearGradient>
+        </defs>
+        <g font-family="inherit" font-size="13" text-anchor="middle">
+          <g>
+            <rect x="10" y="50" width="96" height="50" rx="11" fill="url(#g1)"/>
+            <text x="58" y="74" fill="#fff" font-weight="600">载入结构</text>
+            <text x="58" y="91" fill="#e8effc" font-size="11">PDB / mmCIF</text>
+          </g>
+          <line x1="106" y1="75" x2="140" y2="75" stroke="#9fb0c8" stroke-width="2" marker-end="url(#ar)"/>
+          <g>
+            <rect x="146" y="50" width="110" height="50" rx="11" fill="#fff" stroke="#cdd9ec"/>
+            <text x="201" y="74" fill="#152238" font-weight="600">界面识别</text>
+            <text x="201" y="91" fill="#7b8aa3" font-size="11">接触 + 氢键等</text>
+          </g>
+          <line x1="256" y1="75" x2="290" y2="75" stroke="#9fb0c8" stroke-width="2" marker-end="url(#ar)"/>
+          <g>
+            <rect x="296" y="50" width="110" height="50" rx="11" fill="#fff" stroke="#cdd9ec"/>
+            <text x="351" y="74" fill="#152238" font-weight="600">抗体 / CDR</text>
+            <text x="351" y="91" fill="#7b8aa3" font-size="11">VH·VL·CDR 划分</text>
+          </g>
+          <line x1="406" y1="75" x2="440" y2="75" stroke="#9fb0c8" stroke-width="2" marker-end="url(#ar)"/>
+          <g>
+            <rect x="446" y="50" width="96" height="50" rx="11" fill="#fff" stroke="#cdd9ec"/>
+            <text x="494" y="74" fill="#152238" font-weight="600">面积 / 热点</text>
+            <text x="494" y="91" fill="#7b8aa3" font-size="11">SASA·BSA·ΔASA</text>
+          </g>
+          <line x1="542" y1="75" x2="576" y2="75" stroke="#9fb0c8" stroke-width="2" marker-end="url(#ar)"/>
+          <g>
+            <rect x="582" y="50" width="68" height="50" rx="11" fill="#0f9aa8"/>
+            <text x="616" y="74" fill="#fff" font-weight="600">导出</text>
+            <text x="616" y="91" fill="#d6f3f5" font-size="11">CSV/JSON</text>
+          </g>
+        </g>
+        <text x="330" y="135" fill="#7b8aa3" font-size="12" text-anchor="middle" font-family="inherit">全程基于 3Dmol.js 3D 视图，分析结果在右侧面板即时呈现</text>
+      </svg>
+    </div>
+
+    <div class="note">📌 本文为系列封面。每篇对应一个独立主题，可直接作为一篇公众号图文使用；文中 SVG 插图可单独截图或导出后插入推文。</div>
+  </div>
+
+  <div class="footer">AbInterface X · 蛋白质界面相互作用分析 · 抗体–抗原专用</div>
+</div>
+</body>
+</html>

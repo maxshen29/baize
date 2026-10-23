@@ -1,0 +1,25 @@
+# Baize 方案撰写平台 · 生产/部署编排
+# 数据库在远程服务器，此处只编排后端(api)与前端(web)。
+# 本地联调需要 PG 时，另见 docker-compose.dev.yml。
+version: "3.9"
+
+services:
+  api:
+    build: ./api
+    env_file: .env
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/api/health').status==200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  web:
+    build: ./web
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
+    restart: unless-stopped

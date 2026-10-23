@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 320" font-family="'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif">
+  <defs>
+    <marker id="ar5" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#0f766e"/>
+    </marker>
+  </defs>
+  <rect width="820" height="320" fill="#f8fafc"/>
+  <text x="32" y="34" font-size="18" font-weight="700" fill="#0f172a">社会推演 · 数字沙盘 工作流</text>
+  <text x="32" y="56" font-size="12" fill="#64748b">种子材料 → 构建世界 → 关系图谱 → 多智能体推演 → 报告 → 对话</text>
+
+  <rect x="24" y="96" width="150" height="70" rx="12" fill="#ffffff" stroke="#10b981" stroke-width="2"/>
+  <text x="99" y="122" text-anchor="middle" font-size="12" font-weight="600" fill="#0f172a">① 种子材料</text>
+  <text x="99" y="141" text-anchor="middle" font-size="10.5" fill="#64748b">seed_text + question</text>
+  <text x="99" y="158" text-anchor="middle" font-size="10" fill="#94a3b8">POST /build-world</text>
+
+  <rect x="200" y="96" width="150" height="70" rx="12" fill="#ffffff" stroke="#06b6d4" stroke-width="2"/>
+  <text x="275" y="122" text-anchor="middle" font-size="12" font-weight="600" fill="#0f172a">② 构建世界</text>
+  <text x="275" y="141" text-anchor="middle" font-size="10.5" fill="#64748b">世界观 + 人物画像</text>
+  <text x="275" y="158" text-anchor="middle" font-size="10" fill="#94a3b8">personas JSON</text>
+
+  <rect x="376" y="96" width="150" height="70" rx="12" fill="#ffffff" stroke="#8b5cf6" stroke-width="2"/>
+  <text x="451" y="122" text-anchor="middle" font-size="12" font-weight="600" fill="#0f172a">③ 关系图谱</text>
+  <text x="451" y="141" text-anchor="middle" font-size="10.5" fill="#64748b">GraphRAG 抽取</text>
+  <text x="451" y="158" text-anchor="middle" font-size="10" fill="#94a3b8">POST /extract-graph</text>
+
+  <rect x="552" y="96" width="150" height="70" rx="12" fill="#ffffff" stroke="#f59e0b" stroke-width="2"/>
+  <text x="627" y="122" text-anchor="middle" font-size="12" font-weight="600" fill="#0f172a">④ 多智能体推演</text>
+  <text x="627" y="141" text-anchor="middle" font-size="10.5" fill="#64748b">SSE 逐轮演化</text>
+  <text x="627" y="158" text-anchor="middle" font-size="10" fill="#94a3b8">POST /simulate</text>
+
+  <rect x="728" y="96" width="64" height="70" rx="12" fill="#ecfdf5" stroke="#10b981" stroke-width="2"/>
+  <text x="760" y="128" text-anchor="middle" font-size="11" font-weight="600" fill="#065f46">存档</text>
+  <text x="760" y="146" text-anchor="middle" font-size="10" fill="#047857">social_</text>
+  <text x="760" y="160" text-anchor="middle" font-size="10" fill="#047857">simulations</text>
+
+  <!-- arrows row1 -->
+  <line x1="174" y1="131" x2="196" y2="131" stroke="#0f766e" stroke-width="2" marker-end="url(#ar5)"/>
+  <line x1="350" y1="131" x2="372" y2="131" stroke="#0f766e" stroke-width="2" marker-end="url(#ar5)"/>
+  <line x1="526" y1="131" x2="548" y2="131" stroke="#0f766e" stroke-width="2" marker-end="url(#ar5)"/>
+  <line x1="702" y1="131" x2="724" y2="131" stroke="#0f766e" stroke-width="2" marker-end="url(#ar5)"/>
+
+  <!-- row2 outputs -->
+  <rect x="200" y="208" width="150" height="64" rx="12" fill="#ffffff" stroke="#0d9488" stroke-width="2"/>
+  <text x="275" y="234" text-anchor="middle" font-size="12" font-weight="600" fill="#0f172a">⑤ 预测报告</text>
+  <text x="275" y="253" text-anchor="middle" font-size="10.5" fill="#64748b">SSE 文本流</text>
+  <text x="275" y="269" text-anchor="middle" font-size="10" fill="#94a3b8">POST /report</text>
+
+  <rect x="376" y="208" width="150" height="64" rx="12" fill="#ffffff" stroke="#0d9488" stroke-width="2"/>
+  <text x="451" y="234" text-anchor="middle" font-size="12" font-weight="600" fill="#0f172a">⑥ 与数字世界对话</text>
+  <text x="451" y="253" text-anchor="middle" font-size="10.5" fill="#64748b">SSE · 可聚焦居民</text>
+  <text x="451" y="269" text-anchor="middle" font-size="10" fill="#94a3b8">POST /chat</text>
+
+  <!-- arrow from simulate down to report/chat -->
+  <path d="M627 166 L627 190 L275 190 L275 204" stroke="#0f766e" stroke-width="2" fill="none" marker-end="url(#ar5)"/>
+  <path d="M627 166 L627 190 L451 190 L451 204" stroke="#0f766e" stroke-width="2" fill="none" marker-end="url(#ar5)"/>
+
+  <text x="32" y="300" font-size="11" fill="#475569">说明：所有生成/推演步骤均调用已在「大模型接入」中配置的默认模型（OpenAI 兼容 SSE 流式）；结果与存档按创建人隔离。</text>
+</svg>

@@ -1,0 +1,1 @@
+import{A as e}from"./AcademicTool-C_5DOMfD.js";import{d as o,o as a,c}from"./index-CjP14Ny6.js";const n=o({__name:"index",setup(r){return(s,t)=>(a(),c(e,{code:"academic_survey",tool:"survey",label:"文献综述",desc:"基于主题 / 文献生成 related works 草稿",placeholder:"粘贴研究主题，或若干文献摘要 / 笔记…"}))}});export{n as default};

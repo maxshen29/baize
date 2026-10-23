@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 360" font-family="'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif">
+  <defs>
+    <marker id="ar4" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#0f766e"/>
+    </marker>
+  </defs>
+  <rect width="820" height="360" fill="#f8fafc"/>
+  <text x="32" y="34" font-size="18" font-weight="700" fill="#0f172a">AI 应用注册与动态加载</text>
+  <text x="32" y="56" font-size="12" fill="#64748b">后端 discover / mount / register · 前端 import.meta.glob 自动发现 · 权限守护</text>
+
+  <!-- backend column -->
+  <text x="40" y="92" font-size="13" font-weight="700" fill="#0d9488">后端 (FastAPI)</text>
+  <rect x="32" y="104" width="250" height="58" rx="12" fill="#ffffff" stroke="#10b981" stroke-width="2"/>
+  <text x="157" y="128" text-anchor="middle" font-size="12" font-weight="600" fill="#0f172a">APP_PACKAGES 清单</text>
+  <text x="157" y="147" text-anchor="middle" font-size="10.5" fill="#64748b">backend/app/modules/__init__.py</text>
+
+  <rect x="32" y="184" width="250" height="58" rx="12" fill="#ffffff" stroke="#06b6d4" stroke-width="2"/>
+  <text x="157" y="208" text-anchor="middle" font-size="12" font-weight="600" fill="#0f172a">discover_apps()</text>
+  <text x="157" y="227" text-anchor="middle" font-size="10.5" fill="#64748b">读取 MANIFEST + router</text>
+
+  <rect x="32" y="264" width="250" height="58" rx="12" fill="#ffffff" stroke="#0d9488" stroke-width="2"/>
+  <text x="157" y="288" text-anchor="middle" font-size="12" font-weight="600" fill="#0f172a">register_apps() / mount_apps()</text>
+  <text x="157" y="307" text-anchor="middle" font-size="10.5" fill="#64748b">启动期 upsert 模块表 + 挂路由</text>
+
+  <!-- arrows backend -->
+  <line x1="157" y1="162" x2="157" y2="180" stroke="#0f766e" stroke-width="2" marker-end="url(#ar4)"/>
+  <line x1="157" y1="242" x2="157" y2="260" stroke="#0f766e" stroke-width="2" marker-end="url(#ar4)"/>
+
+  <!-- modules table + router -->
+  <rect x="320" y="264" width="180" height="58" rx="12" fill="#ffffff" stroke="#64748b" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <text x="410" y="290" text-anchor="middle" font-size="11.5" font-weight="600" fill="#0f172a">modules 表</text>
+  <text x="410" y="308" text-anchor="middle" font-size="10" fill="#64748b">+ app:code:use 权限</text>
+  <line x1="282" y1="293" x2="316" y2="293" stroke="#0f766e" stroke-width="2" marker-end="url(#ar4)"/>
+
+  <rect x="540" y="264" width="180" height="58" rx="12" fill="#ffffff" stroke="#64748b" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <text x="630" y="290" text-anchor="middle" font-size="11.5" font-weight="600" fill="#0f172a">/api/v1/modules/*</text>
+  <text x="630" y="308" text-anchor="middle" font-size="10" fill="#64748b">API 路由挂载</text>
+  <line x1="282" y1="293" x2="536" y2="293" stroke="#0f766e" stroke-width="2" marker-end="url(#ar4)"/>
+
+  <!-- frontend column -->
+  <text x="40" y="350" font-size="0" fill="#fff">.</text>
+  <text x="540" y="92" font-size="13" font-weight="700" fill="#8b5cf6">前端 (Vue SPA)</text>
+  <rect x="520" y="104" width="270" height="58" rx="12" fill="#ffffff" stroke="#8b5cf6" stroke-width="2"/>
+  <text x="655" y="128" text-anchor="middle" font-size="12" font-weight="600" fill="#0f172a">import.meta.glob 自动发现</text>
+  <text x="655" y="147" text-anchor="middle" font-size="10.5" fill="#64748b">views/modules/&lt;code&gt;/index.vue</text>
+
+  <rect x="520" y="184" width="270" height="58" rx="12" fill="#ffffff" stroke="#6366f1" stroke-width="2"/>
+  <text x="655" y="208" text-anchor="middle" font-size="12" font-weight="600" fill="#0f172a">buildModuleRoutes()</text>
+  <text x="655" y="227" text-anchor="middle" font-size="10.5" fill="#64748b">按 enabled 模块动态加路由</text>
+  <line x1="655" y1="162" x2="655" y2="180" stroke="#0f766e" stroke-width="2" marker-end="url(#ar4)"/>
+
+  <rect x="520" y="264" width="270" height="58" rx="12" fill="#f5f3ff" stroke="#8b5cf6" stroke-width="2"/>
+  <text x="655" y="288" text-anchor="middle" font-size="12" font-weight="600" fill="#5b21b6">侧边栏 + 路由守卫</text>
+  <text x="655" y="307" text-anchor="middle" font-size="10.5" fill="#6d28d9">meta.perm = app:code:use</text>
+  <line x1="655" y1="242" x2="655" y2="260" stroke="#0f766e" stroke-width="2" marker-end="url(#ar4)"/>
+
+  <!-- connector backend->frontend (modules table feeds frontend list) -->
+  <path d="M410 322 C 410 350, 655 350, 655 270" stroke="#64748b" stroke-width="2" stroke-dasharray="5 4" fill="none" marker-end="url(#ar4)"/>
+  <text x="540" y="346" text-anchor="middle" font-size="10" fill="#475569">/api/v1/modules 列表</text>
+</svg>

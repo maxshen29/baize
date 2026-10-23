@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>04 · 读懂界面：七类相互作用</title>
+<style>
+  :root{--bg:#f4f6fb;--card:#fff;--ink:#152238;--ink2:#3c4a63;--muted:#7b8aa3;
+    --accent:#3b6fd4;--violet:#7c5cd6;--teal:#0f9aa8;--orange:#d9822b;--line:#e6ecf5;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:"Segoe UI","Microsoft YaHei","PingFang SC",system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;line-height:1.85;}
+  .wrap{max-width:720px;margin:0 auto;background:var(--card);min-height:100vh;
+    box-shadow:0 0 40px rgba(21,34,56,.06);padding:0 0 60px;}
+  .topbar{padding:14px 22px;background:#fff;border-bottom:1px solid var(--line);
+    font-size:12px;color:var(--muted);display:flex;gap:8px;align-items:center}
+  .topbar b{color:var(--accent);font-weight:600}
+  .hero{padding:38px 28px 26px;background:linear-gradient(135deg,#3b6fd4,#7c5cd6);color:#fff}
+  .hero .kicker{font-size:12px;letter-spacing:3px;opacity:.85;margin:0 0 8px}
+  .hero h1{font-size:24px;margin:0 0 10px;font-weight:700;line-height:1.4}
+  .hero p{font-size:14px;opacity:.92;margin:0}
+  .body{padding:24px 26px 0}
+  h2{font-size:18px;margin:30px 0 12px;display:flex;align-items:center;gap:9px;color:var(--ink)}
+  h2 .bar{width:5px;height:17px;border-radius:3px;background:linear-gradient(var(--accent),var(--violet))}
+  p.lead{font-size:14.5px;color:var(--ink2);margin:0 0 12px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .it{border:1px solid var(--line);border-radius:11px;padding:12px 13px;background:#fff}
+  .it .h{display:flex;align-items:center;gap:9px;margin-bottom:5px}
+  .it .ic{flex:none;width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:#fff;font-size:13px;font-weight:700}
+  .it b{font-size:13.5px}
+  .it span{font-size:12px;color:var(--muted)}
+  .card{border:1px solid var(--line);border-radius:12px;padding:16px;margin:14px 0;background:#fbfcfe}
+  .card h3{margin:0 0 8px;font-size:15px}
+  .focus{display:flex;gap:10px;align-items:stretch;margin:12px 0}
+  .fbox{flex:1;border:1px solid var(--line);border-radius:11px;padding:12px;background:#fff;text-align:center}
+  .fbox.on{border-color:#bcd2f4;background:#f5f8ff}
+  .fbox b{font-size:13.5px;display:block;margin-bottom:3px}
+  .fbox span{font-size:11.5px;color:var(--muted)}
+  .fbox .tag{display:inline-block;margin-top:7px;font-size:11px;padding:2px 9px;border-radius:12px}
+  .note{font-size:12.5px;color:var(--muted);background:#f3f6fc;border-left:3px solid var(--accent);
+    border-radius:0 8px 8px 0;padding:10px 13px;margin:16px 0}
+  .footer{padding:22px 26px 0;color:var(--muted);font-size:12px;text-align:center}
+  svg{display:block;max-width:100%}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">系列 <b>AbInterface X 使用指南</b> · 第 4 / 6 篇 · <span>相互作用</span></div>
+  <div class="hero">
+    <p class="kicker">UNDERSTAND THE INTERFACE</p>
+    <h1>读懂界面：七类相互作用与界面残基筛选</h1>
+    <p>氢键、盐桥、π–π… 工具把「近」拆成可区分的作用力类型，让你知道结合到底靠什么维持。</p>
+  </div>
+
+  <div class="body">
+    <h2><span class="bar"></span>七类相互作用，各有图例</h2>
+    <p class="lead">左侧「相互作用类型显示」里每一类都能单独开关，关闭某类只影响显示与统计，不会漏判其它类型。</p>
+    <div class="grid">
+      <div class="it"><div class="h"><div class="ic" style="background:#d4c200">HB</div><b>氢键</b></div><span>供体–氢…受体，几何或距离判据可切换</span></div>
+      <div class="it"><div class="h"><div class="ic" style="background:#ff7b00">SB</div><b>盐桥</b></div><span>带正电与带负电残基侧链间的静电吸引</span></div>
+      <div class="it"><div class="h"><div class="ic" style="background:#22c55e">ππ</div><b>π–π 堆积</b></div><span>芳香环之间的平行 / 错位堆积</span></div>
+      <div class="it"><div class="h"><div class="ic" style="background:#38bdf8">+π</div><b>阳离子–π</b></div><span>正电荷侧链与芳香环的相互作用</span></div>
+      <div class="it"><div class="h"><div class="ic" style="background:#eab308">SS</div><b>二硫键</b></div><span>两个 Cys 之间的共价二硫连接</span></div>
+      <div class="it"><div class="h"><div class="ic" style="background:#9aa0a6">HP</div><b>疏水接触</b></div><span>非极性残基间的范德华 / 疏水堆积</span></div>
+      <div class="it"><div class="h"><div class="ic" style="background:#14b8a6">WB</div><b>水桥</b></div><span>通过桥接水分子间接形成的氢键网络</span></div>
+      <div class="it"><div class="h"><div class="ic" style="background:#3b6fd4">∑</div><b>综合接触</b></div><span>重原子距离 ≤ 截断（默认 4.5 Å）即计接触</span></div>
+    </div>
+
+    <div class="card">
+      <h3>氢键判据：两种口径</h3>
+      <svg viewBox="0 0 640 120" role="img" aria-label="氢键几何判据示意">
+        <g font-family="inherit" font-size="12.5" text-anchor="middle">
+          <!-- donor -->
+          <circle cx="120" cy="60" r="14" fill="#3b6fd4"/>
+          <text x="120" y="64" fill="#fff" font-weight="700" font-size="12">D</text>
+          <circle cx="180" cy="60" r="11" fill="#7b8aa3"/>
+          <text x="180" y="64" fill="#fff" font-size="11">H</text>
+          <line x1="134" y1="60" x2="169" y2="60" stroke="#152238" stroke-width="2.4"/>
+          <line x1="191" y1="60" x2="250" y2="60" stroke="#d64550" stroke-width="2.4" stroke-dasharray="3 4"/>
+          <circle cx="262" cy="60" r="14" fill="#d64550"/>
+          <text x="262" y="64" fill="#fff" font-weight="700" font-size="12">A</text>
+          <line x1="180" y1="60" x2="262" y2="60" stroke="#9aa0a6" stroke-width="1.4"/>
+          <text x="195" y="44" fill="#d64550" font-size="11">H···A ≤ 2.7 Å</text>
+          <text x="150" y="100" fill="#3c4a63" font-weight="600">几何判据：D–H···A 夹角近 180°</text>
+
+          <text x="430" y="40" fill="#3c4a63" font-weight="600">距离判据</text>
+          <circle cx="400" cy="75" r="13" fill="#3b6fd4"/><text x="400" y="79" fill="#fff" font-size="11">N</text>
+          <circle cx="470" cy="75" r="13" fill="#d64550"/><text x="470" y="79" fill="#fff" font-size="11">O</text>
+          <line x1="413" y1="75" x2="457" y2="75" stroke="#d64550" stroke-width="2.4" stroke-dasharray="3 4"/>
+          <text x="435" y="62" fill="#d64550" font-size="11">≤ 3.5 Å</text>
+        </g>
+      </svg>
+      <p style="font-size:12.5px;color:var(--muted);margin:6px 0 0">几何判据更严格（要求 D–H···A 几何接近线性），距离判据更宽松。切换后界面残基与计数会随之更新。</p>
+    </div>
+
+    <h2><span class="bar"></span>三种「聚焦」视图</h2>
+    <p class="lead">同一个复合物，想看的东西不同，工具提供三种收窄方式：</p>
+    <div class="focus">
+      <div class="fbox on"><b>抗体–抗原</b><span>只看 VH/VL 与抗原链之间</span><span class="tag" style="background:#e8effc;color:#3b6fd4">默认</span></div>
+      <div class="fbox"><b>全部界面</b><span>所有链对之间的接触都算</span><span class="tag" style="background:#f3f6fc;color:#7b8aa3">无抗体时退回</span></div>
+      <div class="fbox"><b>VH–VL</b><span>只看抗体两条链之间</span><span class="tag" style="background:#eef2fb;color:#7c5cd6">仅当两条都有</span></div>
+    </div>
+
+    <h2><span class="bar"></span>界面残基怎么被认定</h2>
+    <div class="card">
+      <svg viewBox="0 0 640 120" role="img" aria-label="界面定义两种模式">
+        <g font-family="inherit" font-size="12.5" text-anchor="middle">
+          <rect x="30" y="34" width="250" height="56" rx="11" fill="#fff" stroke="#cdd9ec"/>
+          <text x="155" y="56" fill="#152238" font-weight="600">距离截断模式</text>
+          <text x="155" y="76" fill="#7b8aa3" font-size="11.5">重原子接触 ≤ 4.5 Å 即记界面残基</text>
+          <rect x="360" y="34" width="250" height="56" rx="11" fill="#fff" stroke="#cdd9ec"/>
+          <text x="485" y="56" fill="#152238" font-weight="600">ΔASA 收窄模式</text>
+          <text x="485" y="76" fill="#7b8aa3" font-size="11.5">再按 ΔASA ≥ 1.0 Å² 进一步收窄</text>
+        </g>
+      </svg>
+      <p style="font-size:12.5px;color:var(--ink2);margin:8px 0 0">「界面定义模式」选「距离截断」用接触判定；选「ΔASA」则再叠加埋藏面积变化阈值，得到的界面残基更贴近「真正被埋住」的那批残基（见下一篇）。</p>
+    </div>
+
+    <div class="note">📌 七类作用力里，氢键和盐桥通常是特异性来源，疏水接触与 π 堆积贡献结合稳定性。报告里的「相互作用表」会逐条列出跨链接触，方便你据此设计突变或解释亲和力的来源。</div>
+  </div>
+
+  <div class="footer">AbInterface X · 蛋白质界面相互作用分析 · 抗体–抗原专用</div>
+</div>
+</body>
+</html>

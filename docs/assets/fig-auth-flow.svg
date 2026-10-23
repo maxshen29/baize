@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 300" font-family="'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif">
+  <defs>
+    <marker id="arr2" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#0f766e"/>
+    </marker>
+  </defs>
+  <rect width="820" height="300" fill="#f8fafc"/>
+  <text x="32" y="34" font-size="18" font-weight="700" fill="#0f172a">请求鉴权与审计流程</text>
+  <text x="32" y="56" font-size="12" fill="#64748b">登录签发双 JWT · 中间件全量审计 · RBAC 接口级守卫</text>
+
+  <!-- nodes -->
+  <rect x="32" y="96" width="150" height="64" rx="12" fill="#ffffff" stroke="#10b981" stroke-width="2"/>
+  <text x="107" y="124" text-anchor="middle" font-size="12.5" font-weight="600" fill="#0f172a">① 登录 / 注册</text>
+  <text x="107" y="143" text-anchor="middle" font-size="10.5" fill="#64748b">POST /auth/login</text>
+
+  <rect x="218" y="96" width="150" height="64" rx="12" fill="#ffffff" stroke="#06b6d4" stroke-width="2"/>
+  <text x="293" y="124" text-anchor="middle" font-size="12.5" font-weight="600" fill="#0f172a">② 签发 JWT</text>
+  <text x="293" y="143" text-anchor="middle" font-size="10.5" fill="#64748b">access + refresh</text>
+
+  <rect x="404" y="96" width="150" height="64" rx="12" fill="#ffffff" stroke="#10b981" stroke-width="2"/>
+  <text x="479" y="124" text-anchor="middle" font-size="12.5" font-weight="600" fill="#0f172a">③ 携带 Bearer</text>
+  <text x="479" y="143" text-anchor="middle" font-size="10.5" fill="#64748b">Authorization 头</text>
+
+  <rect x="590" y="96" width="198" height="64" rx="12" fill="#ffffff" stroke="#0d9488" stroke-width="2"/>
+  <text x="689" y="120" text-anchor="middle" font-size="12.5" font-weight="600" fill="#0f172a">④ 操作日志中间件</text>
+  <text x="689" y="139" text-anchor="middle" font-size="10.5" fill="#64748b">脱敏 · 异步落库</text>
+
+  <!-- second row -->
+  <rect x="32" y="200" width="150" height="64" rx="12" fill="#ffffff" stroke="#f59e0b" stroke-width="2"/>
+  <text x="107" y="228" text-anchor="middle" font-size="12.5" font-weight="600" fill="#0f172a">⑤ 当前用户</text>
+  <text x="107" y="247" text-anchor="middle" font-size="10.5" fill="#64748b">黑名单 / 状态校验</text>
+
+  <rect x="218" y="200" width="150" height="64" rx="12" fill="#ffffff" stroke="#f59e0b" stroke-width="2"/>
+  <text x="293" y="228" text-anchor="middle" font-size="12.5" font-weight="600" fill="#0f172a">⑥ 权限校验</text>
+  <text x="293" y="247" text-anchor="middle" font-size="10.5" fill="#64748b">RequirePermission</text>
+
+  <rect x="404" y="200" width="150" height="64" rx="12" fill="#ecfdf5" stroke="#10b981" stroke-width="2"/>
+  <text x="479" y="228" text-anchor="middle" font-size="12.5" font-weight="600" fill="#065f46">⑦ 业务处理</text>
+  <text x="479" y="247" text-anchor="middle" font-size="10.5" fill="#047857">返回 {code,data}</text>
+
+  <rect x="590" y="200" width="198" height="64" rx="12" fill="#ffffff" stroke="#64748b" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <text x="689" y="228" text-anchor="middle" font-size="12.5" font-weight="600" fill="#0f172a">⑧ 响应落库</text>
+  <text x="689" y="247" text-anchor="middle" font-size="10.5" fill="#64748b">审计日志补写</text>
+
+  <!-- arrows row1 -->
+  <line x1="182" y1="128" x2="214" y2="128" stroke="#0f766e" stroke-width="2" marker-end="url(#arr2)"/>
+  <line x1="368" y1="128" x2="400" y2="128" stroke="#0f766e" stroke-width="2" marker-end="url(#arr2)"/>
+  <line x1="554" y1="128" x2="586" y2="128" stroke="#0f766e" stroke-width="2" marker-end="url(#arr2)"/>
+  <!-- arrow row1 to row2 (④->⑤) -->
+  <path d="M689 160 L689 190" stroke="#0f766e" stroke-width="2" marker-end="url(#arr2)"/>
+  <!-- row2 -->
+  <line x1="182" y1="232" x2="214" y2="232" stroke="#0f766e" stroke-width="2" marker-end="url(#arr2)"/>
+  <line x1="368" y1="232" x2="400" y2="232" stroke="#0f766e" stroke-width="2" marker-end="url(#arr2)"/>
+  <line x1="554" y1="232" x2="586" y2="232" stroke="#0f766e" stroke-width="2" marker-end="url(#arr2)"/>
+  <!-- ⑦ back to ⑧ actually ⑦ handler then response; ④ wrote log at start, ⑧ final -->
+  <path d="M688 160 L479 160 L479 190" stroke="#0f766e" stroke-width="2" fill="none" marker-end="url(#arr2)"/>
+</svg>

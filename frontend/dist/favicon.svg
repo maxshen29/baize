@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="白泽">
+  <defs>
+    <linearGradient id="bzGradF" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#34d399"/>
+      <stop offset="0.48" stop-color="#10b981"/>
+      <stop offset="1" stop-color="#06b6d4"/>
+    </linearGradient>
+  </defs>
+  <!-- 小尺寸优化：铺满边距、略加粗笔画，保证 16px 下清晰 -->
+  <rect x="1" y="1" width="62" height="62" rx="17" fill="url(#bzGradF)"/>
+  <g fill="none" stroke="#ffffff" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M29.2 10.6 L22.4 17.4"/>
+    <rect x="20.4" y="17.2" width="23.2" height="25.4" rx="5.4"/>
+    <path d="M20.4 30 L43.6 30"/>
+  </g>
+  <circle cx="32" cy="36.2" r="3.7" fill="#ffffff"/>
+</svg>

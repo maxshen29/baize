@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 380" font-family="'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif">
+  <defs>
+    <linearGradient id="gEm" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#34d399"/><stop offset="1" stop-color="#06b6d4"/>
+    </linearGradient>
+    <marker id="arr" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#0f766e"/>
+    </marker>
+  </defs>
+  <rect width="820" height="380" fill="#f8fafc"/>
+  <text x="32" y="34" font-size="18" font-weight="700" fill="#0f172a">总体架构</text>
+  <text x="32" y="56" font-size="12" fill="#64748b">前后端分离 · 模块化插件式 · 大模型即服务</text>
+
+  <!-- Browser / Frontend -->
+  <rect x="32" y="120" width="180" height="86" rx="12" fill="#ffffff" stroke="#10b981" stroke-width="2"/>
+  <text x="122" y="150" text-anchor="middle" font-size="13" font-weight="600" fill="#0f172a">浏览器 / Vue 3 SPA</text>
+  <text x="122" y="172" text-anchor="middle" font-size="11" fill="#64748b">Vite + Pinia + Element Plus</text>
+  <text x="122" y="190" text-anchor="middle" font-size="11" fill="#64748b">ECharts · Axios</text>
+
+  <!-- API Gateway -->
+  <rect x="300" y="92" width="210" height="150" rx="14" fill="#ffffff" stroke="#0d9488" stroke-width="2"/>
+  <text x="405" y="120" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a">FastAPI 网关</text>
+  <line x1="312" y1="132" x2="498" y2="132" stroke="#e2e8f0"/>
+  <text x="320" y="152" font-size="11" fill="#334155">• CORS 白名单校验</text>
+  <text x="320" y="170" font-size="11" fill="#334155">• 操作日志中间件审计</text>
+  <text x="320" y="188" font-size="11" fill="#334155">• JWT 鉴权 (access/refresh)</text>
+  <text x="320" y="206" font-size="11" fill="#334155">• RBAC 权限依赖守卫</text>
+  <text x="320" y="224" font-size="11" fill="#334155">• 统一 {code,data,message}</text>
+
+  <!-- external deps -->
+  <rect x="588" y="70" width="200" height="64" rx="12" fill="#ffffff" stroke="#64748b" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <text x="688" y="98" text-anchor="middle" font-size="12.5" font-weight="600" fill="#0f172a">PostgreSQL 16</text>
+  <text x="688" y="118" text-anchor="middle" font-size="11" fill="#64748b">asyncpg · UUID/jsonb</text>
+
+  <rect x="588" y="158" width="200" height="64" rx="12" fill="#fff7ed" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <text x="688" y="186" text-anchor="middle" font-size="12.5" font-weight="600" fill="#0f172a">大模型服务</text>
+  <text x="688" y="206" text-anchor="middle" font-size="11" fill="#92400e">OpenAI 兼容 (SSE 流式)</text>
+
+  <rect x="588" y="246" width="200" height="54" rx="12" fill="#ffffff" stroke="#64748b" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <text x="688" y="272" text-anchor="middle" font-size="12" font-weight="600" fill="#0f172a">静态业务模块</text>
+  <text x="688" y="290" text-anchor="middle" font-size="11" fill="#64748b">/modules/* (遗留前端)</text>
+
+  <!-- arrows -->
+  <line x1="212" y1="163" x2="296" y2="163" stroke="#0f766e" stroke-width="2" marker-end="url(#arr)"/>
+  <line x1="510" y1="128" x2="584" y2="100" stroke="#0f766e" stroke-width="2" marker-end="url(#arr)"/>
+  <line x1="510" y1="170" x2="584" y2="188" stroke="#0f766e" stroke-width="2" marker-end="url(#arr)"/>
+  <line x1="510" y1="200" x2="584" y2="262" stroke="#0f766e" stroke-width="2" marker-end="url(#arr)"/>
+
+  <!-- legend -->
+  <rect x="32" y="320" width="14" height="14" rx="3" fill="#ffffff" stroke="#0d9488" stroke-width="2"/>
+  <text x="52" y="332" font-size="11" fill="#475569">平台内部服务</text>
+  <rect x="172" y="320" width="14" height="14" rx="3" fill="#fff7ed" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="3 2"/>
+  <text x="192" y="332" font-size="11" fill="#475569">外部依赖 (需自行接入)</text>
+</svg>

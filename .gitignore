@@ -1,0 +1,46 @@
+﻿################################################################################
+# 此 .gitignore 文件已由 Microsoft(R) Visual Studio 自动创建。
+################################################################################
+
+/.vs
+.DS_Store
+node_modules
+ 
+
+
+# local env files
+.env.local
+.env.*.local
+
+# Log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Editor directories and files
+.idea
+.vscode
+*.suo
+*.ntvs*
+*.njsproj
+*.sw? 
+
+
+# 忽略所有子项目中由 Visual Studio 生成的文件夹和文件
+**/obj/
+**/bin/
+**/Debug/
+**/Release/ 
+
+
+# ===== 密钥与本地配置：禁止提交到仓库 =====
+backend/.env
+.env
+
+# ===== 调试/复现脚本产生的临时日志（可能包含凭据，禁止提交） =====
+*.log
+
+# ===== Python 缓存 =====
+__pycache__/
+*.pyc

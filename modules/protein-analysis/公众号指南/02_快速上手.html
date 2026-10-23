@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>02 · 3 分钟快速上手</title>
+<style>
+  :root{--bg:#f4f6fb;--card:#fff;--ink:#152238;--ink2:#3c4a63;--muted:#7b8aa3;
+    --accent:#3b6fd4;--violet:#7c5cd6;--teal:#0f9aa8;--orange:#d9822b;--line:#e6ecf5;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:"Segoe UI","Microsoft YaHei","PingFang SC",system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;line-height:1.85;}
+  .wrap{max-width:720px;margin:0 auto;background:var(--card);min-height:100vh;
+    box-shadow:0 0 40px rgba(21,34,56,.06);padding:0 0 60px;}
+  .topbar{padding:14px 22px;background:#fff;border-bottom:1px solid var(--line);
+    font-size:12px;color:var(--muted);display:flex;gap:8px;align-items:center}
+  .topbar b{color:var(--accent);font-weight:600}
+  .hero{padding:38px 28px 26px;background:linear-gradient(135deg,#3b6fd4,#7c5cd6);color:#fff}
+  .hero .kicker{font-size:12px;letter-spacing:3px;opacity:.85;margin:0 0 8px}
+  .hero h1{font-size:25px;margin:0 0 10px;font-weight:700;line-height:1.4}
+  .hero p{font-size:14px;opacity:.92;margin:0}
+  .body{padding:24px 26px 0}
+  h2{font-size:18px;margin:30px 0 12px;display:flex;align-items:center;gap:9px;color:var(--ink)}
+  h2 .bar{width:5px;height:17px;border-radius:3px;background:linear-gradient(var(--accent),var(--violet))}
+  p.lead{font-size:14.5px;color:var(--ink2);margin:0 0 12px}
+  .step{border:1px solid var(--line);border-radius:12px;padding:15px 16px;margin:12px 0;background:#fff;
+    display:flex;gap:14px;align-items:flex-start}
+  .step .n{flex:none;width:30px;height:30px;border-radius:9px;display:grid;place-items:center;color:#fff;
+    font-weight:700;font-size:15px;background:linear-gradient(135deg,var(--accent),var(--violet))}
+  .step b{font-size:14.5px;display:block;margin-bottom:3px}
+  .step span{font-size:12.8px;color:var(--ink2)}
+  .step code{background:#eef2fb;color:var(--accent);border-radius:5px;padding:1px 6px;font-size:12px}
+  .card{border:1px solid var(--line);border-radius:12px;padding:16px;margin:14px 0;background:#fbfcfe}
+  .card h3{margin:0 0 8px;font-size:15px}
+  .note{font-size:12.5px;color:var(--muted);background:#f3f6fc;border-left:3px solid var(--accent);
+    border-radius:0 8px 8px 0;padding:10px 13px;margin:16px 0}
+  .kbd{display:inline-block;border:1px solid var(--line);border-bottom-width:2px;border-radius:6px;
+    background:#fff;padding:1px 8px;font-size:12px;color:var(--ink2);font-family:inherit}
+  .pill{display:inline-flex;align-items:center;gap:6px;background:#eef2fb;color:var(--accent);
+    border-radius:20px;padding:3px 11px;font-size:12px;margin:2px 4px 2px 0}
+  .footer{padding:22px 26px 0;color:var(--muted);font-size:12px;text-align:center}
+  svg{display:block;max-width:100%}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">系列 <b>AbInterface X 使用指南</b> · 第 2 / 6 篇 · <span>快速上手</span></div>
+  <div class="hero">
+    <p class="kicker">GET STARTED IN 3 MINUTES</p>
+    <h1>3 分钟快速上手：从拖入文件到看到第一个界面</h1>
+    <p>不需要安装、不需要账号，一个 HTML 文件双击即用。跟着下面三步，你就能看到抗体–抗原的界面残基。</p>
+  </div>
+
+  <div class="body">
+    <h2><span class="bar"></span>三步跑通</h2>
+
+    <div class="step"><div class="n">1</div><div>
+      <b>载入结构</b>
+      <span>把 <code>.pdb</code> 或 <code>.cif</code> 文件直接拖到左侧「载入结构」的虚线框里；也可以点 <span class="kbd">＋ 载入结构</span> 选本地文件。想省事就输入 PDB ID（如 <code>3HFM</code>，一个 Fab–溶菌酶复合物），回车自动从 RCSB 下载。</span>
+    </div></div>
+
+    <div class="step"><div class="n">2</div><div>
+      <b>点击「自动识别抗体链与 CDR」</b>
+      <span>工具会扫描每条链，依据保守二硫键与框架区特征（第 1/第 2 保守 Cys、FR2 保守 Trp、FR4 的 F/W-G-x-G 基序）自动判定 VH / VL，并划分 CDR 与框架区。识别成功会提示对应的 VH、VL 链。</span>
+    </div></div>
+
+    <div class="step"><div class="n">3</div><div>
+      <b>看右侧面板的结果</b>
+      <span>界面残基、相互作用明细、互补位 / 表位、面积与热点会即时列出。默认聚焦「抗体–抗原界面」，若未识别到抗体则自动退回全部链间界面。3D 视图里被判定为界面的残基会高亮成棒状。</span>
+    </div></div>
+
+    <div class="card">
+      <h3>典型界面长这样</h3>
+      <svg viewBox="0 0 640 220" role="img" aria-label="3D 视图界面高亮示意">
+        <defs>
+          <linearGradient id="a1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3b6fd4"/><stop offset="1" stop-color="#7c5cd6"/></linearGradient>
+          <linearGradient id="a2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e0a06a"/><stop offset="1" stop-color="#d9822b"/></linearGradient>
+        </defs>
+        <!-- antibody cartoon -->
+        <g fill="url(#a1)" opacity=".9">
+          <path d="M60,40 q40,-26 78,2 q26,22 6,60 q-30,44 -78,22 q-34,-20 -22,-58 q8,-18 16,-26z"/>
+          <path d="M138,92 l-14,86 q34,-16 30,-58 q2,30 30,52 l-14,-80 q-18,12 -32,0z"/>
+        </g>
+        <!-- antigen cartoon -->
+        <g fill="url(#a2)" opacity=".9">
+          <path d="M380,60 q60,-24 110,16 q34,40 0,86 q-52,40 -112,12 q-44,-22 -28,-70 q10,-28 30,-44z"/>
+        </g>
+        <!-- interface sticks (paratope pink, epitope orange) -->
+        <g>
+          <circle cx="150" cy="120" r="6" fill="#d34f7d"/><circle cx="158" cy="138" r="6" fill="#d34f7d"/>
+          <circle cx="146" cy="150" r="6" fill="#d34f7d"/><circle cx="166" cy="106" r="6" fill="#d34f7d"/>
+          <circle cx="372" cy="118" r="6" fill="#e08a2b"/><circle cx="364" cy="136" r="6" fill="#e08a2b"/>
+          <circle cx="380" cy="150" r="6" fill="#e08a2b"/><circle cx="356" cy="104" r="6" fill="#e08a2b"/>
+        </g>
+        <!-- connecting lines -->
+        <g stroke="#9aa0a6" stroke-width="1.6" stroke-dasharray="2 4">
+          <line x1="158" y1="130" x2="368" y2="128"/><line x1="150" y1="135" x2="362" y2="143"/>
+          <line x1="160" y1="122" x2="372" y2="118"/>
+        </g>
+        <g font-family="inherit" font-size="12.5" font-weight="600" text-anchor="middle">
+          <text x="100" y="200" fill="#3b6fd4">抗体（按 CDR 区域着色）</text>
+          <text x="440" y="200" fill="#d9822b">抗原</text>
+          <text x="265" y="170" fill="#d64550">界面残基高亮</text>
+        </g>
+      </svg>
+      <p style="font-size:12.5px;color:var(--muted);margin:8px 0 0">提示：把「着色模式」切到「按 CDR 区域」，抗体上的 CDR1 / CDR2 / CDR3 会分别以红、橙、紫三色显示，一眼就能看出哪段在接触抗原。</p>
+    </div>
+
+    <h2><span class="bar"></span>上手后先调这几个参数</h2>
+    <p class="lead">三个最常用、也最影响结果的设置，建议第一次就了解：</p>
+    <div class="card">
+      <span class="pill">🎚 接触截断 默认 4.5 Å</span>
+      <span class="pill">🔗 氢键判据 几何 / 距离</span>
+      <span class="pill">🧬 CDR 方案 Kabat</span>
+      <p style="font-size:13px;color:var(--ink2);margin:10px 0 0">接触截断决定「多近算接触」；氢键判据可在「几何判据（D–H···A，H···A ≤ 2.7 Å）」与「距离判据（N/O···N/O ≤ 3.5 Å）」间切换；CDR 方案决定抗体环的划分方式——下一篇专门讲它。</p>
+    </div>
+
+    <div class="note">📌 第一次跑通后，建议换一个你熟悉的 PDB 复现一遍，确认界面残基和文献一致。如果识别不到抗体，多半是结构只给了抗原或链不完整，下一篇会讲手动指定 CDR 的办法。</div>
+  </div>
+
+  <div class="footer">AbInterface X · 蛋白质界面相互作用分析 · 抗体–抗原专用</div>
+</div>
+</body>
+</html>

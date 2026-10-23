@@ -1,0 +1,38 @@
+version: "3.8"
+
+services:
+  glm4-vllm:
+    image: vllm/vllm-openai:v0.6.1
+    container_name: glm4-9b-1m-vllm
+    restart: unless-stopped
+    # 关键：共享内存，张量并行必须 --ipc=host
+    ipc: host
+    ports:
+      - "8000:8000"
+    volumes:
+      # 模型本地目录映射，提前下载好模型到 ./models/glm4-9b-1m
+      - ./models/glm4-9b-1m:/models/glm4-9b-1m
+      # huggingface缓存
+      - vllm-hf-cache:/root/.cache/huggingface
+    environment:
+      - HF_HUB_ENABLE_HF_TRANSFER=1
+      # - CUDA_VISIBLE_DEVICES=0,1 # 多卡指定GPU
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all # 单卡写1；多卡写2，对应tensor-parallel-size
+              capabilities: [gpu]
+    command: >
+      --model /models/glm4-9b-1m
+      --served-model-name glm-4-9b-chat-1m
+      --trust-remote-code
+      --tensor-parallel-size 1
+      --max-model-len 262144
+      --gpu-memory-utilization 0.85
+      --host 0.0.0.0
+      --port 8000
+
+volumes:
+  vllm-hf-cache:

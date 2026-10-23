@@ -1,0 +1,1 @@
+import{A as e}from"./AcademicTool-C_5DOMfD.js";import{d as a,o,c}from"./index-CjP14Ny6.js";const d=a({__name:"index",setup(r){return(m,t)=>(o(),c(e,{code:"academic_grammar",tool:"grammar",label:"语法纠错",desc:"拼写 / 语法 / 标点校对，给出修改对照",placeholder:"粘贴需要校对的文本（英文 / 中文）…"}))}});export{d as default};

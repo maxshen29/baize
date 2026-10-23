@@ -1,0 +1,62 @@
+
+=== Sample: iris (154 rows, 5 fields) ===
+  OK: scatter
+  OK: scatter3d
+  OK: bar
+  OK: line
+  OK: area
+  OK: pie
+  SKIP(warn): heatmap -> ????????X ??Y ?????????
+  OK: radar
+  OK: boxplot
+  OK: histogram
+  OK: density
+  OK: violin
+  OK: regression
+  OK: parallel
+  SKIP(warn): sankey -> ????????X?????? Y????????????
+  OK: aggregate(sum)
+  OK: stats
+  OK: kde/histogram
+
+=== Sample: cars (32 rows, 9 fields) ===
+  OK: scatter
+  OK: scatter3d
+  OK: bar
+  OK: line
+  OK: area
+  OK: pie
+  OK: heatmap
+  OK: radar
+  OK: boxplot
+  OK: histogram
+  OK: density
+  OK: violin
+  OK: regression
+  OK: parallel
+  OK: sankey
+  OK: aggregate(sum)
+  OK: stats
+  OK: kde/histogram
+
+=== Sample: sales (80 rows, 6 fields) ===
+  OK: scatter
+  OK: scatter3d
+  OK: bar
+  OK: line
+  OK: area
+  OK: pie
+  OK: heatmap
+  OK: radar
+  OK: boxplot
+  OK: histogram
+  OK: density
+  OK: violin
+  OK: regression
+  OK: parallel
+  OK: sankey
+  OK: aggregate(sum)
+  OK: stats
+  OK: kde/histogram
+
+==== RESULT: 54 passed, 0 failed ====

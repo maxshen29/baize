@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>05 · 埋藏面积与热点</title>
+<style>
+  :root{--bg:#f4f6fb;--card:#fff;--ink:#152238;--ink2:#3c4a63;--muted:#7b8aa3;
+    --accent:#3b6fd4;--violet:#7c5cd6;--teal:#0f9aa8;--orange:#d9822b;--line:#e6ecf5;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:"Segoe UI","Microsoft YaHei","PingFang SC",system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;line-height:1.85;}
+  .wrap{max-width:720px;margin:0 auto;background:var(--card);min-height:100vh;
+    box-shadow:0 0 40px rgba(21,34,56,.06);padding:0 0 60px;}
+  .topbar{padding:14px 22px;background:#fff;border-bottom:1px solid var(--line);
+    font-size:12px;color:var(--muted);display:flex;gap:8px;align-items:center}
+  .topbar b{color:var(--accent);font-weight:600}
+  .hero{padding:38px 28px 26px;background:linear-gradient(135deg,#3b6fd4,#7c5cd6);color:#fff}
+  .hero .kicker{font-size:12px;letter-spacing:3px;opacity:.85;margin:0 0 8px}
+  .hero h1{font-size:24px;margin:0 0 10px;font-weight:700;line-height:1.4}
+  .hero p{font-size:14px;opacity:.92;margin:0}
+  .body{padding:24px 26px 0}
+  h2{font-size:18px;margin:30px 0 12px;display:flex;align-items:center;gap:9px;color:var(--ink)}
+  h2 .bar{width:5px;height:17px;border-radius:3px;background:linear-gradient(var(--accent),var(--violet))}
+  p.lead{font-size:14.5px;color:var(--ink2);margin:0 0 12px}
+  .card{border:1px solid var(--line);border-radius:12px;padding:16px;margin:14px 0;background:#fbfcfe}
+  .card h3{margin:0 0 8px;font-size:15px}
+  .formula{background:#152238;color:#eaf0fb;border-radius:10px;padding:13px 15px;font-size:13px;
+    font-family:"SFMono-Regular",Consolas,monospace;margin:10px 0;line-height:1.9}
+  .formula b{color:#9fd0ff}
+  .pill{display:inline-flex;align-items:center;gap:6px;background:#eef2fb;color:var(--accent);
+    border-radius:20px;padding:3px 11px;font-size:12px;margin:2px 4px 2px 0}
+  .kw{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin:12px 0}
+  .k{background:#fff;border:1px solid var(--line);border-radius:11px;padding:13px;text-align:center}
+  .k b{font-size:18px;display:block;color:var(--accent)}
+  .k span{font-size:11.5px;color:var(--muted)}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;margin:8px 0}
+  th,td{border:1px solid var(--line);padding:7px 9px;text-align:center}
+  th{background:#f3f6fc;color:var(--ink2);font-weight:600}
+  td.l{text-align:left}
+  .note{font-size:12.5px;color:var(--muted);background:#f3f6fc;border-left:3px solid var(--accent);
+    border-radius:0 8px 8px 0;padding:10px 13px;margin:16px 0}
+  .footer{padding:22px 26px 0;color:var(--muted);font-size:12px;text-align:center}
+  svg{display:block;max-width:100%}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">系列 <b>AbInterface X 使用指南</b> · 第 5 / 6 篇 · <span>埋藏面积与热点</span></div>
+  <div class="hero">
+    <p class="kicker">AREA &amp; HOTSPOTS</p>
+    <h1>埋藏面积与热点：ΔASA、BSA 与核心热点排序</h1>
+    <p>结合的本质是面积被「埋住」。用面积量化结合强度，用热点锁定最该动手的残基。</p>
+  </div>
+
+  <div class="body">
+    <h2><span class="bar"></span>三个面积，分别回答三个问题</h2>
+    <div class="kw">
+      <div class="k"><b>SASA</b><span>溶剂可及表面积</span></div>
+      <div class="k"><b>BSA</b><span>界面埋藏面积</span></div>
+      <div class="k"><b>ΔASA</b><span>结合后损失的面积</span></div>
+    </div>
+    <div class="card">
+      <h3>计算方式（Shrake–Rupley 数值法）</h3>
+      <div class="formula">
+        <b>SASA</b> = 沿表面撒探针点，落在原子半径球外的比例 × 原子表面积<br>
+        <b>BSA</b> = (SASA<sub>A</sub> + SASA<sub>B</sub> − SASA<sub>AB</sub>) / 2<br>
+        <b>ΔASA</b> = 单链 SASA − 复合物中该链 SASA
+      </div>
+      <p style="font-size:12.5px;color:var(--muted);margin:6px 0 0">探针半径 1.4 Å、Bondi 原子半径；采样点数可在 92（快）/ 200（推荐）/ 480（精确）间选择。点数越多越准，也越慢。</p>
+    </div>
+
+    <div class="card">
+      <svg viewBox="0 0 640 140" role="img" aria-label="BSA 球模型示意">
+        <defs>
+          <radialGradient id="sph" cx="35%" cy="30%"><stop offset="0" stop-color="#9fd0ff"/><stop offset="1" stop-color="#3b6fd4"/></radialGradient>
+          <radialGradient id="sph2" cx="35%" cy="30%"><stop offset="0" stop-color="#ffd9a8"/><stop offset="1" stop-color="#d9822b"/></radialGradient>
+        </defs>
+        <circle cx="250" cy="70" r="48" fill="url(#sph)"/>
+        <circle cx="390" cy="70" r="48" fill="url(#sph2)"/>
+        <text x="250" y="74" fill="#fff" font-size="13" font-weight="700" text-anchor="middle" font-family="inherit">抗体</text>
+        <text x="390" y="74" fill="#fff" font-size="13" font-weight="700" text-anchor="middle" font-family="inherit">抗原</text>
+        <path d="M298,48 A48 48 0 0 1 298,92" fill="none" stroke="#d64550" stroke-width="5" stroke-linecap="round"/>
+        <text x="320" y="38" fill="#d64550" font-size="12" font-weight="700" text-anchor="middle" font-family="inherit">BSA</text>
+        <text x="320" y="120" fill="#7b8aa3" font-size="11.5" text-anchor="middle" font-family="inherit">两球相交的「埋住」部分即界面埋藏面积</text>
+      </svg>
+    </div>
+
+    <h2><span class="bar"></span>ΔASA 还能定义「谁算界面残基」</h2>
+    <p class="lead">在「界面定义模式」选 <span class="pill">ΔASA</span> 时，工具会按 <b>ΔASA ≥ 1.0 Å²</b>（文献常用阈值）进一步收窄界面残基——只保留结合后表面积真正损失明显的残基，比单纯距离截断更贴近「被埋住」的语义。</p>
+
+    <h2><span class="bar"></span>热点排序：谁最该先被研究</h2>
+    <p class="lead">工具给每个界面残基打一个综合分，按权重汇总四类信号，再划分等级：</p>
+    <div class="card">
+      <svg viewBox="0 0 640 200" role="img" aria-label="热点权重占比图">
+        <g transform="translate(150,100)">
+          <circle r="78" fill="none" stroke="#eef2f9" stroke-width="34"/>
+          <!-- 35% contact, 35% dasa, 20% hbond, 10% cdr -->
+          <circle r="78" fill="none" stroke="#3b6fd4" stroke-width="34" stroke-dasharray="173 489" transform="rotate(-90)"/>
+          <circle r="78" fill="none" stroke="#7c5cd6" stroke-width="34" stroke-dasharray="173 489" stroke-dashoffset="-173" transform="rotate(-90)"/>
+          <circle r="78" fill="none" stroke="#0f9aa8" stroke-width="34" stroke-dasharray="98 564" stroke-dashoffset="-346" transform="rotate(-90)"/>
+          <circle r="78" fill="none" stroke="#d9822b" stroke-width="34" stroke-dasharray="49 613" stroke-dashoffset="-444" transform="rotate(-90)"/>
+          <text x="0" y="6" text-anchor="middle" font-family="inherit" font-size="13" fill="#152238" font-weight="700">热点权重</text>
+        </g>
+        <g font-family="inherit" font-size="12.5">
+          <rect x="330" y="40" width="14" height="14" rx="3" fill="#3b6fd4"/><text x="352" y="51">接触原子数 · 35%</text>
+          <rect x="330" y="64" width="14" height="14" rx="3" fill="#7c5cd6"/><text x="352" y="75">ΔASA · 35%</text>
+          <rect x="330" y="88" width="14" height="14" rx="3" fill="#0f9aa8"/><text x="352" y="99">氢键 / 盐桥 · 20%</text>
+          <rect x="330" y="112" width="14" height="14" rx="3" fill="#d9822b"/><text x="352" y="123">CDR 贡献 · 10%</text>
+        </g>
+      </svg>
+      <p style="font-size:12.5px;color:var(--muted);margin:6px 0 0">四个权重滑块可拖动（默认 0.35 / 0.35 / 0.20 / 0.10），松手后自动重算。报告会列出「核心热点」残基及前 8 名候选，可直接作为突变或亲和成熟的首选位点。</p>
+    </div>
+
+    <div class="card">
+      <h3>报告里这部分长什么样</h3>
+      <table>
+        <tr><th class="l">排名</th><th>残基</th><th>等级</th><th>接触数</th><th>ΔASA</th><th>所属</th></tr>
+        <tr><td class="l">1</td><td>H:Tyr33</td><td>核心热点</td><td>14</td><td>42.6</td><td>CDR-H1</td></tr>
+        <tr><td class="l">2</td><td>L:Trp91</td><td>核心热点</td><td>11</td><td>38.1</td><td>CDR-L3</td></tr>
+        <tr><td class="l">3</td><td>H:Ser100</td><td>核心热点</td><td>9</td><td>31.4</td><td>CDR-H3</td></tr>
+      </table>
+      <p style="font-size:12px;color:var(--muted);margin:6px 0 0">（示例数据，仅作格式示意）</p>
+    </div>
+
+    <div class="note">📌 跨结构比较面积时，务必保证<span style="color:var(--accent);font-weight:600">采样点数一致</span>——否则 BSA/ΔASA 不可比。这一条在下一篇「多结构对比」里会被反复强调。</div>
+  </div>
+
+  <div class="footer">AbInterface X · 蛋白质界面相互作用分析 · 抗体–抗原专用</div>
+</div>
+</body>
+</html>

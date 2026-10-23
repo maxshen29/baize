@@ -1,0 +1,1 @@
+import{A as e}from"./AcademicTool-C_5DOMfD.js";import{d as o,o as a,c}from"./index-CjP14Ny6.js";const s=o({__name:"index",setup(r){return(n,t)=>(a(),c(e,{code:"academic_explain",tool:"explain",label:"概念讲解",desc:"通俗 + 严谨地讲解专业概念或公式",placeholder:"输入一个专业概念或公式，例如：Transformer 的自注意力机制"}))}});export{s as default};

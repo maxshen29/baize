@@ -1,0 +1,1 @@
+import{A as e}from"./AcademicTool-C_5DOMfD.js";import{d as o,o as c,c as a}from"./index-CjP14Ny6.js";const n=o({__name:"index",setup(r){return(s,t)=>(c(),a(e,{code:"academic_polish",tool:"polish",label:"论文润色",desc:"提升学术表达、逻辑连贯与用词精准，保留原意",placeholder:"粘贴需要润色的论文段落 / 全文…"}))}});export{n as default};

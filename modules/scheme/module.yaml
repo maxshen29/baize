@@ -1,0 +1,47 @@
+code: scheme
+name: 方案系统
+version: 1.0.0
+description: 企业方案 / 投标 / 技术文档生成与知识库管理系统
+entry: /modules/scheme
+api_prefix: /api/v1/modules/scheme
+icon: Document
+order: 10
+status: enabled
+maintainers:
+  - name: 方案系统团队
+    email: scheme@baize.local
+config_schema:
+  - key: llm_model
+    label: 默认大模型
+    type: select
+    options: [gpt-4, deepseek, qwen]
+    default: deepseek
+    required: true
+  - key: max_tokens
+    label: 单次最大 Token
+    type: number
+    default: 4096
+  - key: knowledge_base_path
+    label: 本地知识库路径
+    type: string
+    default: ./modules/scheme/04_知识库
+dependencies:
+  - code: data-analytics
+    version: "^1.0.0"
+permissions:
+  - code: scheme:plan:read
+    name: 查看方案
+    resource: /api/v1/modules/scheme/plans
+    action: read
+  - code: scheme:plan:write
+    name: 编辑方案
+    resource: /api/v1/modules/scheme/plans
+    action: write
+  - code: scheme:template:read
+    name: 查看模板
+    resource: /api/v1/modules/scheme/templates
+    action: read
+  - code: scheme:knowledge:read
+    name: 查看知识库
+    resource: /api/v1/modules/scheme/knowledge
+    action: read

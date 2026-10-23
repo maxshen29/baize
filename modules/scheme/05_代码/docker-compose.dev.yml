@@ -1,0 +1,37 @@
+# 本地开发编排（含 PostgreSQL + pgvector），仅本机调试用。
+# 生产环境数据库在远程，请用 docker-compose.yml（不含 db）。
+version: "3.9"
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: baize
+      POSTGRES_USER: baize
+      POSTGRES_PASSWORD: localdev
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  api:
+    build: ./api
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg2://baize:localdev@db:5432/baize
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      LLM_BASE_URL: http://host.docker.internal:11434/v1
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+
+  web:
+    build: ./web
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:

@@ -1,0 +1,40 @@
+code: data-analytics
+name: 数据分析
+version: 1.0.0
+description: 基于 ECharts / ECharts-GL 的数据可视化与分析工作台
+entry: /modules/data-analytics
+api_prefix: /api/v1/modules/data-analytics
+icon: DataAnalysis
+order: 30
+status: enabled
+maintainers:
+  - name: 数据分析团队
+    email: analytics@baize.local
+config_schema:
+  - key: chart_lib
+    label: 图表库
+    type: select
+    options: [echarts, echarts-gl]
+    default: echarts-gl
+  - key: default_theme
+    label: 默认主题
+    type: string
+    default: "vintage"
+  - key: max_points
+    label: 单图最大点数
+    type: number
+    default: 5000
+dependencies: []
+permissions:
+  - code: analytics:dataset:read
+    name: 查看数据集
+    resource: /api/v1/modules/data-analytics/datasets
+    action: read
+  - code: analytics:dataset:write
+    name: 管理数据集
+    resource: /api/v1/modules/data-analytics/datasets
+    action: write
+  - code: analytics:chart:read
+    name: 查看图表
+    resource: /api/v1/modules/data-analytics/charts
+    action: read

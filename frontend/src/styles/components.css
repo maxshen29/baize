@@ -1,0 +1,73 @@
+/* =========================================================================
+   Element Plus 组件精修 · 让全站表格/卡片/弹窗统一清新质感
+   ========================================================================= */
+
+/* ---- 卡片 ---- */
+.el-card {
+  border-radius: var(--radius-lg);
+  border-color: var(--c-border);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow var(--dur) var(--ease), transform var(--dur) var(--ease-out);
+}
+.el-card__header {
+  border-bottom: 1px solid var(--c-border-light);
+  font-weight: 600;
+  color: var(--c-text-1);
+}
+
+/* ---- 表格 ---- */
+.el-table {
+  --el-table-border-color: var(--c-border-light);
+  --el-table-header-bg-color: var(--c-surface-2);
+  --el-table-row-hover-bg-color: rgba(16, 185, 129, 0.08);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.el-table th.el-table__cell {
+  background: var(--c-surface-2);
+  font-weight: 600;
+  color: var(--c-text-2);
+  letter-spacing: 0.4px;
+}
+.el-table td.el-table__cell,
+.el-table th.el-table__cell { border-bottom-color: var(--c-border-light); }
+.el-table .el-table__row { transition: background var(--dur-fast) var(--ease); }
+
+/* ---- 按钮：主按钮悬浮上浮 ---- */
+.el-button {
+  transition: transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease), filter var(--dur-fast) var(--ease);
+}
+.el-button--primary:not(.is-plain):not(.is-link):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(16, 185, 129, 0.32);
+}
+.el-button--primary:not(.is-plain):not(.is-link):active { transform: translateY(0); }
+
+/* ---- 标签 ---- */
+.el-tag { border-radius: 8px; }
+
+/* ---- 弹窗 / 抽屉 ---- */
+.el-dialog {
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+.el-dialog__title { font-weight: 600; }
+.el-overlay-dialog .el-dialog { animation: rise-in 0.32s var(--ease-out) both; }
+.el-drawer { --el-drawer-padding-primary: 18px; }
+
+/* ---- 分页 ---- */
+.el-pagination { --el-pagination-button-bg-color: var(--c-surface); }
+
+/* ---- 输入框聚焦微光 ---- */
+.el-input__wrapper,
+.el-textarea__inner {
+  border-radius: var(--radius);
+  transition: box-shadow var(--dur-fast) var(--ease);
+}
+.el-input__wrapper.is-focus {
+  box-shadow: 0 0 0 1px var(--brand-emerald), 0 0 14px rgba(16, 185, 129, 0.22);
+}
+
+/* ---- 菜单/下拉 ---- */
+.el-dropdown-menu__item:focus,
+.el-dropdown-menu__item:hover { background: rgba(16, 185, 129, 0.1); color: var(--brand-emerald); }
