@@ -36,7 +36,19 @@
 - 后端 `GET /health` 用于健康检查；业务 API 统一前缀 `/api/v1`。
 - 根目录 `modules/` 下的遗留静态前端（如蛋白质分析、数据分析的历史版本）由 `app.mount("/modules", StaticFiles(...))` 托管，与 API 前缀 `/api/v1/modules/*` 互不冲突。
 
----
+## 界面预览
+
+· [界面预览](docs/UI.md)
+
+![image-20261023135310230](README.assets\image-20261023135310230.png)
+
+
+
+![image-20261023135410212](README.assets\image-20261023135410212.png)
+
+其他参考
+
+· [界面预览](docs/UI.md)
 
 ## 目录结构
 
@@ -266,6 +278,6 @@ npm run dev      # http://localhost:5173 （Vite 代理 /api、/modules 到后�
 
 ## 文档索引
 
-- [架构设计](docs/ARCHITECTURE.md) · [数据库](docs/DATABASE.md) · [API 定义](docs/API.md) · [前端](docs/FRONTEND.md) · [模块规范](docs/MODULE_SPEC.md)
+- [架构设计](docs/ARCHITECTURE.md) · [数据库](docs/DATABASE.md) · [API 定义](docs/API.md) · [前端](docs/FRONTEND.md) · [模块规范](docs/MODULE_SPEC.md) · [界面预览](docs/UI.md)
 
 > 本文档依据当前代码实现整理；若实现有更新，请以代码与 `docs/` 设计文档为准。
